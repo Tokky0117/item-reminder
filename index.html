@@ -101,15 +101,15 @@
       div.innerHTML = `
         <input class="name" type="text" placeholder="日用品"
           value="${item.name}"
-          onchange="updateName(${index}, this.value)">
+          oninput="updateName(${index}, this.value)">
 
         <input class="toggle" type="checkbox"
           ${item.hasSpare ? "checked" : ""}
-          onchange="toggleSpare(${index})">
+          oninput="toggleSpare(${index})">
 
         <input class="note" type="text" placeholder="備考"
           value="${item.note}"
-          onchange="updateNote(${index}, this.value)">
+          oninput="updateNote(${index}, this.value)">
       `;
 
       container.appendChild(div);
