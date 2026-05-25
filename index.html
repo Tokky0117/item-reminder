@@ -17,6 +17,7 @@
 
     h1 {
       text-align: center;
+      font-size: 24px;
     }
 
     #items {
@@ -38,6 +39,8 @@
       padding: 10px;
       border-radius: 8px;
       border: 1px solid #ccc;
+      font-size: 16px;
+      min-width: 0;
     }
 
     .name {
@@ -51,17 +54,78 @@
     .toggle {
       width: 28px;
       height: 28px;
+      flex-shrink: 0;
     }
 
-    .green {
+    .spare-yes {
       background: #d4ffd4;
     }
 
-    .red {
+    .spare-no {
       background: #ffd4d4;
     }
 
-    button {
+    .icon-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .icon-button {
+      width: 42px;
+      height: 42px;
+      border: none;
+      border-radius: 50%;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .icon-ka {
+      background: #b86b4b;
+      color: white;
+    }
+
+    .icon-mi {
+      background: #c8b6ff;
+      color: #333;
+    }
+
+    .icon-kyo {
+      background: #c99a2e;
+      color: white;
+    }
+
+    .menu {
+      position: absolute;
+      top: 48px;
+      left: 0;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      overflow: hidden;
+      z-index: 10;
+      min-width: 110px;
+    }
+
+    .menu button {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      border: none;
+      background: white;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    .menu button:hover {
+      background: #f0f0f0;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .add-button {
       width: 100%;
       padding: 16px;
       margin-top: 20px;
@@ -70,6 +134,31 @@
       background: #007aff;
       color: white;
       font-size: 18px;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 12px;
+      }
+
+      .item {
+        gap: 6px;
+      }
+
+      .icon-button {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+      }
+
+      input[type="text"] {
+        padding: 8px;
+        font-size: 14px;
+      }
+
+      .note {
+        max-width: 100px;
+      }
     }
   </style>
 </head>
@@ -80,13 +169,29 @@
 
 <div id="items"></div>
 
-<button onclick="addItem()">追加</button>
+<button class="add-button" onclick="addItem()">追加</button>
 
 <script>
   let items = JSON.parse(localStorage.getItem("items")) || [];
+  let openMenuIndex = null;
+
+  // 既存データに新項目を追加
+  items = items.map(item => ({
+    name: item.name || "",
+    hasSpare: item.hasSpare || false,
+    note: item.note || "",
+    icon: item.icon || "か"
+  }));
 
   function saveItems() {
     localStorage.setItem("items", JSON.stringify(items));
+  }
+
+  function getIconClass(icon) {
+    if (icon === "か") return "icon-ka";
+    if (icon === "み") return "icon-mi";
+    if (icon === "共") return "icon-kyo";
+    return "icon-ka";
   }
 
   function render() {
@@ -96,20 +201,46 @@
     items.forEach((item, index) => {
       const div = document.createElement("div");
 
-      div.className = "item " + (item.hasSpare ? "green" : "red");
+      div.className = "item " + (item.hasSpare ? "spare-yes" : "spare-no");
 
       div.innerHTML = `
-        <input class="name" type="text" placeholder="日用品"
+        <div class="icon-wrap">
+          <button
+            class="icon-button ${getIconClass(item.icon)}"
+            onclick="toggleIconMenu(${index})"
+          >
+            ${item.icon}
+          </button>
+
+          <div class="menu ${openMenuIndex === index ? "" : "hidden"}">
+            <button onclick="selectIcon(${index}, 'か')">かずまさ</button>
+            <button onclick="selectIcon(${index}, 'み')">みゆう</button>
+            <button onclick="selectIcon(${index}, '共')">共同</button>
+          </div>
+        </div>
+
+        <input
+          class="name"
+          type="text"
+          placeholder="日用品"
           value="${item.name}"
-          oninput="updateName(${index}, this.value)">
+          oninput="updateName(${index}, this.value)"
+        >
 
-        <input class="toggle" type="checkbox"
+        <input
+          class="toggle"
+          type="checkbox"
           ${item.hasSpare ? "checked" : ""}
-          oninput="toggleSpare(${index})">
+          onchange="toggleSpare(${index})"
+        >
 
-        <input class="note" type="text" placeholder="備考"
+        <input
+          class="note"
+          type="text"
+          placeholder="備考"
           value="${item.note}"
-          oninput="updateNote(${index}, this.value)">
+          oninput="updateNote(${index}, this.value)"
+        >
       `;
 
       container.appendChild(div);
@@ -120,7 +251,8 @@
     items.push({
       name: "",
       hasSpare: false,
-      note: ""
+      note: "",
+      icon: "か"
     });
 
     saveItems();
@@ -139,6 +271,18 @@
 
   function toggleSpare(index) {
     items[index].hasSpare = !items[index].hasSpare;
+    saveItems();
+    render();
+  }
+
+  function toggleIconMenu(index) {
+    openMenuIndex = openMenuIndex === index ? null : index;
+    render();
+  }
+
+  function selectIcon(index, icon) {
+    items[index].icon = icon;
+    openMenuIndex = null;
     saveItems();
     render();
   }
