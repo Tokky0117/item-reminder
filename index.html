@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日用品リマインダー</title>
+
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    #items {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .item {
+      background: white;
+      padding: 10px;
+      border-radius: 12px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    input[type="text"] {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    .name {
+      flex: 2;
+    }
+
+    .note {
+      flex: 1;
+    }
+
+    .toggle {
+      width: 28px;
+      height: 28px;
+    }
+
+    .green {
+      background: #d4ffd4;
+    }
+
+    .red {
+      background: #ffd4d4;
+    }
+
+    button {
+      width: 100%;
+      padding: 16px;
+      margin-top: 20px;
+      border: none;
+      border-radius: 12px;
+      background: #007aff;
+      color: white;
+      font-size: 18px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>日用品リマインダー</h1>
+
+<div id="items"></div>
+
+<button onclick="addItem()">追加</button>
+
+<script>
+  let items = JSON.parse(localStorage.getItem("items")) || [];
+
+  function saveItems() {
+    localStorage.setItem("items", JSON.stringify(items));
+  }
+
+  function render() {
+    const container = document.getElementById("items");
+    container.innerHTML = "";
+
+    items.forEach((item, index) => {
+      const div = document.createElement("div");
+
+      div.className = "item " + (item.hasSpare ? "green" : "red");
+
+      div.innerHTML = `
+        <input class="name" type="text" placeholder="日用品"
+          value="${item.name}"
+          onchange="updateName(${index}, this.value)">
+
+        <input class="toggle" type="checkbox"
+          ${item.hasSpare ? "checked" : ""}
+          onchange="toggleSpare(${index})">
+
+        <input class="note" type="text" placeholder="備考"
+          value="${item.note}"
+          onchange="updateNote(${index}, this.value)">
+      `;
+
+      container.appendChild(div);
+    });
+  }
+
+  function addItem() {
+    items.push({
+      name: "",
+      hasSpare: false,
+      note: ""
+    });
+
+    saveItems();
+    render();
+  }
+
+  function updateName(index, value) {
+    items[index].name = value;
+    saveItems();
+  }
+
+  function updateNote(index, value) {
+    items[index].note = value;
+    saveItems();
+  }
+
+  function toggleSpare(index) {
+    items[index].hasSpare = !items[index].hasSpare;
+    saveItems();
+    render();
+  }
+
+  render();
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js");
+  }
+</script>
+
+</body>
+</html>
