@@ -1,6 +1,6 @@
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open("daily-reminder-v1").then(cache => {
+    caches.open("daily-reminder-v3").then(cache => {
       return cache.addAll([
         "./",
         "./index.html",
