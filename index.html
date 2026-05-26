@@ -213,21 +213,31 @@
     }));
   }
 
-  async function loadItems() {
-    setStatus("読み込み中...");
+  function loadItems() {
+  setStatus("読み込み中...");
 
-    try {
-      const response = await fetch(WEB_APP_URL);
-      const data = await response.json();
+  const callbackName = "loadItemsCallback_" + Date.now();
 
-      items = normalizeItems(data);
-      render();
-      setStatus("読み込み完了");
-    } catch (error) {
-      console.error(error);
-      setStatus("読み込み失敗。通信またはApps Script設定を確認してください。");
-    }
-  }
+  window[callbackName] = function(data) {
+    items = normalizeItems(data);
+    render();
+    setStatus("読み込み完了");
+
+    delete window[callbackName];
+    script.remove();
+  };
+
+  const script = document.createElement("script");
+  script.src = WEB_APP_URL + "?callback=" + callbackName;
+
+  script.onerror = function() {
+    setStatus("読み込み失敗。Apps Scriptのデプロイ設定を確認してください。");
+    delete window[callbackName];
+    script.remove();
+  };
+
+  document.body.appendChild(script);
+}
 
   function saveItemsSoon() {
     clearTimeout(saveTimer);
