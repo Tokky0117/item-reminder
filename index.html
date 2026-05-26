@@ -534,16 +534,18 @@
   }
 
   function deleteSelectedItems() {
-    if (selectedIds.size === 0) {
-      setStatus("削除する項目を選んでください");
-      return;
-    }
+  clearTimeout(saveTimer);
 
-    items = items.filter(item => !selectedIds.has(item.id));
-    selectedIds.clear();
-    saveItems();
-    render();
+  if (selectedIds.size === 0) {
+    setStatus("削除する項目を選んでください");
+    return;
   }
+
+  items = items.filter(item => !selectedIds.has(item.id));
+  selectedIds.clear();
+  saveItems();
+  render();
+}
 
   function addItem() {
     items.push({
