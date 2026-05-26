@@ -29,13 +29,39 @@
     .header {
       flex-shrink: 0;
       background: #f5f5f5;
-      padding: 16px 16px 8px;
+      padding: 14px 12px 6px;
+      position: relative;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
     }
 
     h1 {
       text-align: center;
       font-size: 24px;
       margin: 0 0 8px;
+    }
+
+    .edit-button {
+      position: absolute;
+      right: 0;
+      top: -4px;
+      border: none;
+      background: #f5f5f5;
+      color: #007aff;
+      font-size: 28px;
+      font-weight: bold;
+      width: 48px;
+      height: 40px;
+      border-radius: 12px;
+    }
+
+    .edit-button.active {
+      background: #e8f2ff;
     }
 
     #status {
@@ -51,9 +77,35 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      padding: 12px 12px 96px;
+      padding: 10px 10px 104px;
       box-sizing: border-box;
       -webkit-overflow-scrolling: touch;
+      position: relative;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+    }
+
+    .delete-check-wrap {
+      width: 30px;
+      flex-shrink: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .edit-mode .delete-check-wrap {
+      display: flex;
+    }
+
+    .delete-check {
+      width: 24px;
+      height: 24px;
+      accent-color: #ff3b30;
     }
 
     .item {
@@ -63,10 +115,26 @@
       display: flex;
       gap: 8px;
       align-items: center;
+      flex: 1;
+      min-width: 0;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .item.dragging {
+      opacity: 0.92;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.22);
+      transform: scale(1.02);
+      z-index: 20;
+    }
+
+    .edit-mode .item {
+      cursor: grab;
     }
 
     input[type="text"] {
-      padding: 10px;
+      padding: 8px;
       border-radius: 8px;
       border: 1px solid #ccc;
       font-size: 16px;
@@ -80,6 +148,7 @@
 
     .note {
       flex: 1;
+      max-width: 100px;
     }
 
     .toggle {
@@ -102,8 +171,8 @@
     }
 
     .icon-button {
-      width: 42px;
-      height: 42px;
+      width: 36px;
+      height: 36px;
       border: none;
       border-radius: 50%;
       font-weight: bold;
@@ -127,14 +196,14 @@
 
     .menu {
       position: absolute;
-      top: 48px;
+      top: 44px;
       left: 0;
       background: white;
       border: 1px solid #ccc;
       border-radius: 10px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       overflow: hidden;
-      z-index: 10;
+      z-index: 30;
       min-width: 120px;
     }
 
@@ -152,6 +221,26 @@
       display: none;
     }
 
+    .delete-selected-button {
+      position: fixed;
+      right: 14px;
+      bottom: calc(86px + env(safe-area-inset-bottom));
+      border: none;
+      background: #ff3b30;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 12px 18px;
+      border-radius: 18px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.22);
+      display: none;
+      z-index: 40;
+    }
+
+    .edit-mode .delete-selected-button {
+      display: block;
+    }
+
     .footer {
       flex-shrink: 0;
       position: fixed;
@@ -165,6 +254,7 @@
       background: rgba(245, 245, 245, 0.96);
       box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
       box-sizing: border-box;
+      z-index: 35;
     }
 
     .reload-button {
@@ -186,42 +276,8 @@
       border-radius: 18px;
       background: #007aff;
       color: white;
-      font-size: 22px;
+      font-size: 20px;
       font-weight: bold;
-    }
-
-    @media (max-width: 480px) {
-      .header {
-        padding: 14px 12px 6px;
-      }
-
-      #items {
-        padding: 10px 10px 94px;
-      }
-
-      .item {
-        gap: 6px;
-        border-radius: 8px;
-      }
-
-      .icon-button {
-        width: 36px;
-        height: 36px;
-        font-size: 16px;
-      }
-
-      input[type="text"] {
-        padding: 8px;
-        font-size: 16px;
-      }
-
-      .note {
-        max-width: 100px;
-      }
-
-      .add-button {
-        font-size: 20px;
-      }
     }
   </style>
 </head>
@@ -230,11 +286,16 @@
 
 <div class="app">
   <div class="header">
-    <h1>日用品リスト</h1>
+    <div class="title-row">
+      <h1>日用品リスト</h1>
+      <button class="edit-button" onclick="toggleEditMode()" aria-label="編集">・・・</button>
+    </div>
     <div id="status">読み込み中...</div>
   </div>
 
   <div id="items"></div>
+
+  <button class="delete-selected-button" onclick="deleteSelectedItems()">削除</button>
 
   <div class="footer">
     <button class="reload-button" onclick="loadItems()" aria-label="再読み込み">↻</button>
@@ -248,6 +309,14 @@
   let items = [];
   let openMenuIndex = null;
   let saveTimer = null;
+  let editMode = false;
+  let selectedIds = new Set();
+
+  let longPressTimer = null;
+  let draggingIndex = null;
+  let startY = 0;
+  let currentY = 0;
+  let isDragging = false;
 
   function setStatus(message) {
     document.getElementById("status").textContent = message;
@@ -274,6 +343,8 @@
 
     window[callbackName] = function(data) {
       items = normalizeItems(data);
+      selectedIds.clear();
+      openMenuIndex = null;
       render();
       setStatus("読み込み完了");
 
@@ -331,52 +402,75 @@
   function render() {
     const container = document.getElementById("items");
     container.innerHTML = "";
+    container.className = editMode ? "edit-mode" : "";
+
+    const editButton = document.querySelector(".edit-button");
+    editButton.classList.toggle("active", editMode);
 
     items.forEach((item, index) => {
-      const div = document.createElement("div");
-      div.className = "item " + (item.hasSpare ? "spare-yes" : "spare-no");
+      const row = document.createElement("div");
+      row.className = "row";
+      row.dataset.index = index;
 
-      div.innerHTML = `
-        <div class="icon-wrap">
-          <button
-            class="icon-button ${getIconClass(item.icon)}"
-            onclick="toggleIconMenu(${index})"
+      row.innerHTML = `
+        <div class="delete-check-wrap">
+          <input
+            class="delete-check"
+            type="checkbox"
+            ${selectedIds.has(item.id) ? "checked" : ""}
+            onchange="toggleDeleteCheck('${item.id}', this.checked)"
           >
-            ${item.icon}
-          </button>
-
-          <div class="menu ${openMenuIndex === index ? "" : "hidden"}">
-            <button onclick="selectIcon(${index}, 'か')">かずまさ</button>
-            <button onclick="selectIcon(${index}, 'み')">みゆう</button>
-            <button onclick="selectIcon(${index}, '共')">共同</button>
-          </div>
         </div>
 
-        <input
-          class="name"
-          type="text"
-          placeholder="日用品"
-          value="${escapeHtml(item.name)}"
-          oninput="updateName(${index}, this.value)"
+        <div
+          class="item ${item.hasSpare ? "spare-yes" : "spare-no"}"
+          data-index="${index}"
+          onpointerdown="startLongPress(event, ${index})"
+          onpointermove="moveDragging(event)"
+          onpointerup="endDragging()"
+          onpointercancel="endDragging()"
         >
+          <div class="icon-wrap">
+            <button
+              class="icon-button ${getIconClass(item.icon)}"
+              onclick="toggleIconMenu(${index})"
+            >
+              ${item.icon}
+            </button>
 
-        <input
-          class="toggle"
-          type="checkbox"
-          ${item.hasSpare ? "checked" : ""}
-          onchange="toggleSpare(${index})"
-        >
+            <div class="menu ${openMenuIndex === index ? "" : "hidden"}">
+              <button onclick="selectIcon(${index}, 'か')">かずまさ</button>
+              <button onclick="selectIcon(${index}, 'み')">みゆう</button>
+              <button onclick="selectIcon(${index}, '共')">共同</button>
+            </div>
+          </div>
 
-        <input
-          class="note"
-          type="text"
-          placeholder="備考"
-          value="${escapeHtml(item.note)}"
-          oninput="updateNote(${index}, this.value)"
-        >
+          <input
+            class="name"
+            type="text"
+            placeholder="日用品"
+            value="${escapeHtml(item.name)}"
+            oninput="updateName(${index}, this.value)"
+          >
+
+          <input
+            class="toggle"
+            type="checkbox"
+            ${item.hasSpare ? "checked" : ""}
+            onchange="toggleSpare(${index})"
+          >
+
+          <input
+            class="note"
+            type="text"
+            placeholder="備考"
+            value="${escapeHtml(item.note)}"
+            oninput="updateNote(${index}, this.value)"
+          >
+        </div>
       `;
 
-      container.appendChild(div);
+      container.appendChild(row);
     });
   }
 
@@ -386,6 +480,36 @@
       .replaceAll('"', "&quot;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;");
+  }
+
+  function toggleEditMode() {
+    editMode = !editMode;
+    selectedIds.clear();
+    openMenuIndex = null;
+    endDragging(false);
+    render();
+
+    setStatus(editMode ? "編集モード" : "通常モード");
+  }
+
+  function toggleDeleteCheck(id, checked) {
+    if (checked) {
+      selectedIds.add(id);
+    } else {
+      selectedIds.delete(id);
+    }
+  }
+
+  function deleteSelectedItems() {
+    if (selectedIds.size === 0) {
+      setStatus("削除する項目を選んでください");
+      return;
+    }
+
+    items = items.filter(item => !selectedIds.has(item.id));
+    selectedIds.clear();
+    saveItems();
+    render();
   }
 
   function addItem() {
@@ -427,6 +551,93 @@
     openMenuIndex = null;
     saveItems();
     render();
+  }
+
+  function startLongPress(event, index) {
+    if (!editMode) return;
+
+    const tagName = event.target.tagName.toLowerCase();
+    if (tagName === "input" || tagName === "button") return;
+
+    startY = event.clientY;
+    currentY = event.clientY;
+    draggingIndex = index;
+    isDragging = false;
+
+    clearTimeout(longPressTimer);
+
+    longPressTimer = setTimeout(() => {
+      isDragging = true;
+
+      const itemEl = document.querySelector(`.item[data-index="${draggingIndex}"]`);
+      if (itemEl) {
+        itemEl.classList.add("dragging");
+        itemEl.setPointerCapture?.(event.pointerId);
+      }
+
+      setStatus("並び替え中");
+    }, 1000);
+  }
+
+  function moveDragging(event) {
+    if (draggingIndex === null) return;
+
+    currentY = event.clientY;
+
+    if (!isDragging) {
+      if (Math.abs(currentY - startY) > 12) {
+        clearTimeout(longPressTimer);
+      }
+      return;
+    }
+
+    event.preventDefault();
+
+    const rows = Array.from(document.querySelectorAll(".row"));
+    const currentRow = rows[draggingIndex];
+    if (!currentRow) return;
+
+    const itemEl = currentRow.querySelector(".item");
+    if (itemEl) {
+      itemEl.style.transform = `translateY(${currentY - startY}px) scale(1.02)`;
+    }
+
+    const overIndex = rows.findIndex((row, idx) => {
+      if (idx === draggingIndex) return false;
+      const rect = row.getBoundingClientRect();
+      return currentY > rect.top && currentY < rect.bottom;
+    });
+
+    if (overIndex !== -1 && overIndex !== draggingIndex) {
+      const moved = items.splice(draggingIndex, 1)[0];
+      items.splice(overIndex, 0, moved);
+      draggingIndex = overIndex;
+      startY = currentY;
+      render();
+
+      const newItemEl = document.querySelector(`.item[data-index="${draggingIndex}"]`);
+      if (newItemEl) {
+        newItemEl.classList.add("dragging");
+      }
+    }
+  }
+
+  function endDragging(shouldSave = true) {
+    clearTimeout(longPressTimer);
+
+    if (isDragging && shouldSave) {
+      saveItems();
+      setStatus("並び替えを保存しました");
+    }
+
+    const draggingEls = document.querySelectorAll(".dragging");
+    draggingEls.forEach(el => {
+      el.classList.remove("dragging");
+      el.style.transform = "";
+    });
+
+    draggingIndex = null;
+    isDragging = false;
   }
 
   loadItems();
