@@ -125,12 +125,16 @@
     }
 
     .pull-refresh {
+      position: absolute;
+      top: -56px;
+      left: 0;
+      right: 0;
       height: 56px;
-      flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
       color: var(--primary-color);
+      pointer-events: none;
     }
 
     .refresh-icon {
@@ -878,14 +882,14 @@
     function restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll) {
       requestAnimationFrame(() => {
         if (shouldInitializeScroll) {
-          container.scrollTop = REFRESH_OFFSET;
+          container.scrollTop = 0;
           itemsScrollInitialized = true;
           return;
         }
 
         if (isRefreshing) return;
 
-        container.scrollTop = Math.max(previousScrollTop, REFRESH_OFFSET);
+        container.scrollTop = Math.max(previousScrollTop, 0);
       });
     }
 
@@ -912,7 +916,7 @@
 
       requestAnimationFrame(() => {
         container.scrollTo({
-          top: REFRESH_OFFSET,
+          top: 0,
           behavior: "smooth"
         });
 
