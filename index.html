@@ -33,7 +33,7 @@
     }
 
     .app {
-      height: 100vh;
+      height: 100dvh;
       min-height: 0;
       display: flex;
       flex-direction: column;
@@ -112,10 +112,35 @@
       display: flex;
       flex-direction: column;
       gap: 9px;
-      padding: 10px 10px var(--bottom-space);
+      padding: 0 10px 10px;
       box-sizing: border-box;
       -webkit-overflow-scrolling: touch;
       position: relative;
+    }
+
+    .pull-refresh {
+      height: 56px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary-color);
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .refresh-icon {
+      display: inline-block;
+      line-height: 1;
+    }
+
+    .refresh-icon.spinning {
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
 
     .row {
@@ -373,10 +398,6 @@
     ========================================================= */
     .footer {
       flex-shrink: 0;
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
       display: flex;
       gap: 12px;
       align-items: center;
@@ -552,7 +573,6 @@
     </div>
 
     <div class="footer">
-      <button class="reload-button" onclick="loadItems()" aria-label="再読み込み">↻</button>
       <button class="add-button" onclick="openAddModal()" aria-label="日用品を追加">＋日用品を追加</button>
     </div>
   </div>
@@ -630,6 +650,10 @@
     let items = [];
     let saveTimer = null;
 
+    const REFRESH_OFFSET = 56;
+    let isRefreshing = false;
+    let itemsScrollInitialized = false;
+
     let editMode = false;
     let shoppingMode = false;
 
@@ -679,8 +703,16 @@
     /* =========================================================
       3. データ読み込み・保存
     ========================================================= */
-    function loadItems() {
-      setStatus("読み込み中...");
+    function loadItems(options = {}) {
+      const fromPull = options.fromPull === true;
+
+      if (fromPull) {
+        isRefreshing = true;
+        updateRefreshIndicator();
+        setStatus("更新中...");
+      } else {
+        setStatus("読み込み中...");
+      }
 
       const callbackName = "loadItemsCallback_" + Date.now();
 
@@ -689,7 +721,11 @@
         selectedIds.clear();
         purchaseIds.clear();
         render();
-        setStatus("読み込み完了");
+        setStatus(fromPull ? "更新しました" : "読み込み完了");
+
+        if (fromPull) {
+          finishPullRefresh();
+        }
 
         delete window[callbackName];
         script.remove();
@@ -700,6 +736,9 @@
 
       script.onerror = function() {
         setStatus("読み込み失敗。Apps Scriptのデプロイ設定を確認してください。");
+        if (fromPull) {
+          finishPullRefresh();
+        }
         delete window[callbackName];
         script.remove();
       };
@@ -742,17 +781,79 @@
       updateAppModeClasses();
 
       const container = document.getElementById("items");
+      const previousScrollTop = container.scrollTop;
+      const shouldInitializeScroll = !itemsScrollInitialized;
+
       container.innerHTML = "";
+      container.appendChild(createPullRefreshElement());
 
       const displayItems = getDisplayItems();
 
       if (shoppingMode && displayItems.length === 0) {
         renderEmptyShoppingMessage(container);
+        restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll);
         return;
       }
 
       displayItems.forEach(item => {
         container.appendChild(createItemRow(item));
+      });
+
+      restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll);
+    }
+
+    function createPullRefreshElement() {
+      const refresh = document.createElement("div");
+      refresh.className = "pull-refresh";
+      refresh.innerHTML = `<span class="refresh-icon ${isRefreshing ? "spinning" : ""}" id="refreshIcon">↻</span>`;
+      return refresh;
+    }
+
+    function restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll) {
+      requestAnimationFrame(() => {
+        if (shouldInitializeScroll) {
+          container.scrollTop = REFRESH_OFFSET;
+          itemsScrollInitialized = true;
+          return;
+        }
+
+        if (isRefreshing) return;
+
+        container.scrollTop = Math.max(previousScrollTop, REFRESH_OFFSET);
+      });
+    }
+
+    function updateRefreshIndicator() {
+      const icon = document.getElementById("refreshIcon");
+      if (!icon) return;
+
+      icon.classList.toggle("spinning", isRefreshing);
+    }
+
+    function setupPullToRefresh() {
+      const container = document.getElementById("items");
+
+      container.addEventListener("scroll", () => {
+        if (isRefreshing) return;
+        if (container.scrollTop <= 0) {
+          loadItems({ fromPull: true });
+        }
+      });
+    }
+
+    function finishPullRefresh() {
+      const container = document.getElementById("items");
+
+      requestAnimationFrame(() => {
+        container.scrollTo({
+          top: REFRESH_OFFSET,
+          behavior: "smooth"
+        });
+
+        setTimeout(() => {
+          isRefreshing = false;
+          updateRefreshIndicator();
+        }, 350);
       });
     }
 
@@ -1101,6 +1202,7 @@
     /* =========================================================
       11. 初期実行
     ========================================================= */
+    setupPullToRefresh();
     loadItems();
 
     if ("serviceWorker" in navigator) {
