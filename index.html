@@ -78,7 +78,7 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      padding: 10px 10px 104px;
+      padding: 10px 10px calc(150px + env(safe-area-inset-bottom));
       box-sizing: border-box;
       -webkit-overflow-scrolling: touch;
       position: relative;
@@ -132,31 +132,26 @@
       box-sizing: border-box;
     }
 
-    .name {
-      flex: 2;
-    }
-
-    .note {
+    .text-area {
       flex: 1;
-      max-width: 100px;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
     }
 
     .name-text {
-      flex: 2;
-      min-width: 0;
       font-size: 16px;
       font-weight: bold;
+      color: #111;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
     }
 
     .note-text {
-      flex: 1;
-      max-width: 100px;
-      min-width: 0;
-      font-size: 14px;
-      color: #555;
+      font-size: 12px;
+      color: #666;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -167,10 +162,39 @@
       font-weight: normal;
     }
 
-    .toggle {
-      width: 28px;
-      height: 28px;
+    .edit-text-area {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .edit-name {
+      width: 100%;
+    }
+
+    .edit-note {
+      width: 100%;
+      font-size: 14px;
+    }
+
+    .toggle-wrap {
       flex-shrink: 0;
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .toggle {
+      width: 30px;
+      height: 30px;
+      flex-shrink: 0;
+    }
+
+    .toggle:disabled {
+      opacity: 0.35;
     }
 
     .spare-yes {
@@ -579,45 +603,52 @@
       row.dataset.index = index;
 
       const normalContent = `
-        <div class="name-text ${item.name ? "" : "empty-text"}">
-          ${escapeHtml(item.name || "名称未入力")}
+        <div class="text-area">
+          <div class="name-text ${item.name ? "" : "empty-text"}">
+            ${escapeHtml(item.name || "名称未入力")}
+          </div>
+          <div class="note-text ${item.note ? "" : "empty-text"}">
+            ${escapeHtml(item.note || "備考なし")}
+          </div>
         </div>
 
-        <input
-          class="toggle"
-          type="checkbox"
-          ${item.hasSpare ? "checked" : ""}
-          disabled
-        >
-
-        <div class="note-text ${item.note ? "" : "empty-text"}">
-          ${escapeHtml(item.note || "備考なし")}
+        <div class="toggle-wrap">
+          <input
+            class="toggle"
+            type="checkbox"
+            ${item.hasSpare ? "checked" : ""}
+            onchange="toggleSpare(${index})"
+          >
         </div>
       `;
 
       const editContent = `
-        <input
-          class="name"
-          type="text"
-          placeholder="日用品"
-          value="${escapeHtml(item.name)}"
-          oninput="updateName(${index}, this.value)"
-        >
+        <div class="edit-text-area">
+          <input
+            class="edit-name"
+            type="text"
+            placeholder="日用品"
+            value="${escapeHtml(item.name)}"
+            oninput="updateName(${index}, this.value)"
+          >
 
-        <input
-          class="toggle"
-          type="checkbox"
-          ${item.hasSpare ? "checked" : ""}
-          onchange="toggleSpare(${index})"
-        >
+          <input
+            class="edit-note"
+            type="text"
+            placeholder="備考"
+            value="${escapeHtml(item.note)}"
+            oninput="updateNote(${index}, this.value)"
+          >
+        </div>
 
-        <input
-          class="note"
-          type="text"
-          placeholder="備考"
-          value="${escapeHtml(item.note)}"
-          oninput="updateNote(${index}, this.value)"
-        >
+        <div class="toggle-wrap">
+          <input
+            class="toggle"
+            type="checkbox"
+            ${item.hasSpare ? "checked" : ""}
+            disabled
+          >
+        </div>
       `;
 
       row.innerHTML = `
@@ -706,7 +737,7 @@
   }
 
   function toggleSpare(index) {
-    if (!editMode) return;
+    if (editMode) return;
     items[index].hasSpare = !items[index].hasSpare;
     saveItems();
     render();
