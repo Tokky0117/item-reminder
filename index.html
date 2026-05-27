@@ -103,7 +103,7 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 9px;
       padding: 10px 10px var(--bottom-space);
       box-sizing: border-box;
       -webkit-overflow-scrolling: touch;
@@ -142,14 +142,14 @@
 
     .item {
       background: white;
-      padding: 10px;
+      padding: 7px 10px;
       border-radius: 8px;
       display: flex;
       gap: 8px;
       align-items: center;
       flex: 1;
       min-width: 0;
-      min-height: 56px;
+      min-height: 50px;
       user-select: none;
       -webkit-user-select: none;
       -webkit-touch-callout: none;
@@ -169,7 +169,7 @@
       min-width: 0;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 2px;
     }
 
     .text-area.no-note {
@@ -177,68 +177,27 @@
     }
 
     .name-text {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: bold;
       color: #111;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+      line-height: 1.25;
     }
 
     .note-text {
-      font-size: 12px;
+      font-size: 11px;
       color: #666;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+      line-height: 1.25;
     }
 
     .empty-text {
       color: #999;
       font-weight: normal;
-    }
-
-    .edit-text-area {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .edit-name {
-      width: 100%;
-    }
-
-    .edit-note {
-      width: 100%;
-      font-size: 14px;
-    }
-
-    .toggle-wrap {
-      flex-shrink: 0;
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .toggle {
-      width: 30px;
-      height: 30px;
-      flex-shrink: 0;
-    }
-
-    .toggle:disabled {
-      opacity: 0.35;
-    }
-
-    .spare-yes {
-      background: #d4ffd4;
-    }
-
-    .spare-no {
-      background: #ffd4d4;
     }
 
     .icon-wrap {
@@ -247,12 +206,12 @@
     }
 
     .icon-button {
-      width: 36px;
-      height: 36px;
+      width: 34px;
+      height: 34px;
       border: none;
       border-radius: 50%;
       font-weight: bold;
-      font-size: 16px;
+      font-size: 15px;
       flex-shrink: 0;
     }
 
@@ -277,7 +236,7 @@
 
     .menu {
       position: absolute;
-      top: 44px;
+      top: 42px;
       left: 0;
       background: white;
       border: 1px solid #ccc;
@@ -300,6 +259,80 @@
 
     .hidden {
       display: none;
+    }
+
+    .item-edit-button {
+      width: 34px;
+      height: 34px;
+      border: none;
+      border-radius: 10px;
+      background: transparent;
+      color: #555;
+      font-size: 24px;
+      font-weight: bold;
+      flex-shrink: 0;
+      display: none;
+      line-height: 1;
+    }
+
+    .app.edit-mode .item-edit-button {
+      display: block;
+    }
+
+    .toggle-wrap {
+      flex-shrink: 0;
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .switch-input {
+      display: none;
+    }
+
+    .switch-label {
+      width: 48px;
+      height: 28px;
+      border-radius: 999px;
+      background: #c8c8c8;
+      position: relative;
+      display: inline-block;
+      transition: background 0.2s ease, opacity 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .switch-label::after {
+      content: "";
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      top: 2px;
+      left: 2px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      transition: transform 0.2s ease;
+    }
+
+    .switch-input:checked + .switch-label {
+      background: #007aff;
+    }
+
+    .switch-input:checked + .switch-label::after {
+      transform: translateX(20px);
+    }
+
+    .switch-input:disabled + .switch-label {
+      opacity: 0.4;
+    }
+
+    .spare-yes {
+      background: #d4ffd4;
+    }
+
+    .spare-no {
+      background: #ffd4d4;
     }
 
     .floating-action-area {
@@ -524,9 +557,9 @@
   </div>
 </div>
 
-<div class="modal-backdrop" id="addModal">
+<div class="modal-backdrop" id="itemModal">
   <div class="modal">
-    <h2>日用品を追加</h2>
+    <h2 id="itemModalTitle">日用品を追加</h2>
 
     <div class="field">
       <label>担当</label>
@@ -543,7 +576,7 @@
         id="modalName"
         type="text"
         placeholder="例：トイレットペーパー"
-        oninput="validateAddModal()"
+        oninput="validateItemModal()"
       >
     </div>
 
@@ -557,8 +590,8 @@
     </div>
 
     <div class="modal-actions">
-      <button class="cancel-button" onclick="closeAddModal()">キャンセル</button>
-      <button class="confirm-button" id="modalConfirm" onclick="confirmAddItem()" disabled>決定</button>
+      <button class="cancel-button" onclick="closeItemModal()">キャンセル</button>
+      <button class="confirm-button" id="modalConfirm" onclick="confirmItemModal()" disabled>決定</button>
     </div>
   </div>
 </div>
@@ -597,6 +630,8 @@
   let purchaseIds = new Set();
 
   let modalIcon = "共";
+  let modalMode = "add";
+  let editingItemId = null;
 
   function setStatus(message) {
     document.getElementById("status").textContent = message;
@@ -720,43 +755,20 @@
           ${hasNote ? `<div class="note-text">${escapeHtml(item.note)}</div>` : ""}
         </div>
 
+        ${editMode ? `
+          <button class="item-edit-button" onclick="openEditModal('${item.id}')" aria-label="項目を編集">✎</button>
+        ` : ""}
+
         <div class="toggle-wrap">
           <input
-            class="toggle"
+            id="toggle-${item.id}"
+            class="switch-input"
             type="checkbox"
             ${item.hasSpare ? "checked" : ""}
-            ${shoppingMode ? "disabled" : ""}
+            ${(editMode || shoppingMode) ? "disabled" : ""}
             onchange="toggleSpare(${index})"
           >
-        </div>
-      `;
-
-      const editContent = `
-        <div class="edit-text-area">
-          <input
-            class="edit-name"
-            type="text"
-            placeholder="日用品"
-            value="${escapeHtml(item.name)}"
-            oninput="updateName(${index}, this.value)"
-          >
-
-          <input
-            class="edit-note"
-            type="text"
-            placeholder="備考"
-            value="${escapeHtml(item.note)}"
-            oninput="updateNote(${index}, this.value)"
-          >
-        </div>
-
-        <div class="toggle-wrap">
-          <input
-            class="toggle"
-            type="checkbox"
-            ${item.hasSpare ? "checked" : ""}
-            disabled
-          >
+          <label class="switch-label" for="toggle-${item.id}"></label>
         </div>
       `;
 
@@ -795,20 +807,13 @@
           <div class="icon-wrap">
             <button
               class="icon-button ${getIconClass(item.icon)}"
-              onclick="toggleIconMenu(${index})"
-              ${editMode ? "" : "disabled"}
+              disabled
             >
               ${item.icon}
             </button>
-
-            <div class="menu ${openMenuIndex === index ? "" : "hidden"}">
-              <button onclick="selectIcon(${index}, '共')">共同</button>
-              <button onclick="selectIcon(${index}, 'か')">かずまさ</button>
-              <button onclick="selectIcon(${index}, 'み')">みゆう</button>
-            </div>
           </div>
 
-          ${editMode ? editContent : normalContent}
+          ${normalContent}
         </div>
       `;
 
@@ -925,18 +930,6 @@
     setStatus("購入済みにしました");
   }
 
-  function updateName(index, value) {
-    if (!editMode) return;
-    items[index].name = value;
-    saveItemsSoon();
-  }
-
-  function updateNote(index, value) {
-    if (!editMode) return;
-    items[index].note = value;
-    saveItemsSoon();
-  }
-
   function toggleSpare(index) {
     if (editMode || shoppingMode) return;
     items[index].hasSpare = !items[index].hasSpare;
@@ -944,35 +937,47 @@
     render();
   }
 
-  function toggleIconMenu(index) {
-    if (!editMode) return;
-    openMenuIndex = openMenuIndex === index ? null : index;
-    render();
-  }
-
-  function selectIcon(index, icon) {
-    if (!editMode) return;
-    items[index].icon = icon;
-    openMenuIndex = null;
-    saveItems();
-    render();
-  }
-
   function openAddModal() {
+    modalMode = "add";
+    editingItemId = null;
     modalIcon = "共";
+
+    document.getElementById("itemModalTitle").textContent = "日用品を追加";
     document.getElementById("modalName").value = "";
     document.getElementById("modalNote").value = "";
     document.getElementById("modalConfirm").disabled = true;
+
     updateModalOwnerButtons();
-    document.getElementById("addModal").classList.add("show");
+    document.getElementById("itemModal").classList.add("show");
 
     setTimeout(() => {
       document.getElementById("modalName").focus();
     }, 100);
   }
 
-  function closeAddModal() {
-    document.getElementById("addModal").classList.remove("show");
+  function openEditModal(id) {
+    const item = items.find(item => item.id === id);
+    if (!item) return;
+
+    modalMode = "edit";
+    editingItemId = id;
+    modalIcon = item.icon || "共";
+
+    document.getElementById("itemModalTitle").textContent = "日用品を編集";
+    document.getElementById("modalName").value = item.name || "";
+    document.getElementById("modalNote").value = item.note || "";
+    document.getElementById("modalConfirm").disabled = !(item.name || "").trim();
+
+    updateModalOwnerButtons();
+    document.getElementById("itemModal").classList.add("show");
+
+    setTimeout(() => {
+      document.getElementById("modalName").focus();
+    }, 100);
+  }
+
+  function closeItemModal() {
+    document.getElementById("itemModal").classList.remove("show");
   }
 
   function setModalIcon(icon) {
@@ -986,26 +991,43 @@
     document.getElementById("modalOwnerMi").classList.toggle("selected", modalIcon === "み");
   }
 
-  function validateAddModal() {
+  function validateItemModal() {
     const name = document.getElementById("modalName").value.trim();
     document.getElementById("modalConfirm").disabled = name.length === 0;
   }
 
-  function confirmAddItem() {
+  function confirmItemModal() {
     const name = document.getElementById("modalName").value.trim();
     const note = document.getElementById("modalNote").value.trim();
 
     if (!name) return;
 
-    items.push({
-      id: createId(),
-      name: name,
-      hasSpare: false,
-      note: note,
-      icon: modalIcon
-    });
+    if (modalMode === "add") {
+      items.push({
+        id: createId(),
+        name: name,
+        hasSpare: false,
+        note: note,
+        icon: modalIcon
+      });
+    }
 
-    closeAddModal();
+    if (modalMode === "edit") {
+      items = items.map(item => {
+        if (item.id === editingItemId) {
+          return {
+            ...item,
+            name: name,
+            note: note,
+            icon: modalIcon
+          };
+        }
+
+        return item;
+      });
+    }
+
+    closeItemModal();
     saveItems();
     render();
   }
