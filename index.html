@@ -118,29 +118,9 @@
       align-items: center;
       flex: 1;
       min-width: 0;
-      transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
       user-select: none;
       -webkit-user-select: none;
       -webkit-touch-callout: none;
-    }
-
-    .app.edit-mode .item,
-    .app.edit-mode .item * {
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
-    }
-
-    .app.edit-mode .item {
-      touch-action: none;
-      cursor: grab;
-    }
-
-    .item.dragging {
-      opacity: 0.92;
-      box-shadow: 0 8px 18px rgba(0,0,0,0.22);
-      transform: scale(1.02);
-      z-index: 20;
     }
 
     input[type="text"] {
@@ -152,15 +132,6 @@
       box-sizing: border-box;
     }
 
-    .app.edit-mode input[type="text"] {
-      pointer-events: none;
-    }
-
-    .app.edit-mode .icon-button,
-    .app.edit-mode .toggle {
-      pointer-events: none;
-    }
-
     .name {
       flex: 2;
     }
@@ -168,6 +139,32 @@
     .note {
       flex: 1;
       max-width: 100px;
+    }
+
+    .name-text {
+      flex: 2;
+      min-width: 0;
+      font-size: 16px;
+      font-weight: bold;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .note-text {
+      flex: 1;
+      max-width: 100px;
+      min-width: 0;
+      font-size: 14px;
+      color: #555;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .empty-text {
+      color: #999;
+      font-weight: normal;
     }
 
     .toggle {
@@ -196,6 +193,11 @@
       border-radius: 50%;
       font-weight: bold;
       font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .icon-button:disabled {
+      opacity: 1;
     }
 
     .icon-ka {
@@ -303,6 +305,107 @@
       font-size: 20px;
       font-weight: bold;
     }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      box-sizing: border-box;
+      z-index: 100;
+    }
+
+    .modal-backdrop.show {
+      display: flex;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 420px;
+      background: white;
+      border-radius: 18px;
+      padding: 18px;
+      box-sizing: border-box;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+    }
+
+    .modal h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+      text-align: center;
+    }
+
+    .field {
+      margin-bottom: 14px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    .modal input[type="text"] {
+      width: 100%;
+      font-size: 16px;
+    }
+
+    .owner-options {
+      display: flex;
+      gap: 8px;
+    }
+
+    .owner-option {
+      flex: 1;
+      border: 1px solid #ccc;
+      background: white;
+      border-radius: 12px;
+      padding: 10px 6px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .owner-option.selected {
+      border: 2px solid #007aff;
+      background: #e8f2ff;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .cancel-button {
+      flex: 1;
+      height: 48px;
+      border: none;
+      border-radius: 14px;
+      background: #eeeeee;
+      color: #333;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .confirm-button {
+      flex: 1;
+      height: 48px;
+      border: none;
+      border-radius: 14px;
+      background: #007aff;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .confirm-button:disabled {
+      background: #c8c8c8;
+      color: #777;
+    }
   </style>
 </head>
 
@@ -325,7 +428,46 @@
 
   <div class="footer">
     <button class="reload-button" onclick="loadItems()" aria-label="再読み込み">↻</button>
-    <button class="add-button" onclick="addItem()" aria-label="日用品を追加">＋日用品を追加</button>
+    <button class="add-button" onclick="openAddModal()" aria-label="日用品を追加">＋日用品を追加</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="addModal">
+  <div class="modal">
+    <h2>日用品を追加</h2>
+
+    <div class="field">
+      <label>担当</label>
+      <div class="owner-options">
+        <button class="owner-option selected" id="modalOwnerKyo" onclick="setModalIcon('共')">共同</button>
+        <button class="owner-option" id="modalOwnerKa" onclick="setModalIcon('か')">かずまさ</button>
+        <button class="owner-option" id="modalOwnerMi" onclick="setModalIcon('み')">みゆう</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>項目名</label>
+      <input
+        id="modalName"
+        type="text"
+        placeholder="例：トイレットペーパー"
+        oninput="validateAddModal()"
+      >
+    </div>
+
+    <div class="field">
+      <label>備考</label>
+      <input
+        id="modalNote"
+        type="text"
+        placeholder="任意"
+      >
+    </div>
+
+    <div class="modal-actions">
+      <button class="cancel-button" onclick="closeAddModal()">キャンセル</button>
+      <button class="confirm-button" id="modalConfirm" onclick="confirmAddItem()" disabled>決定</button>
+    </div>
   </div>
 </div>
 
@@ -338,13 +480,7 @@
   let editMode = false;
   let selectedIds = new Set();
 
-  let longPressTimer = null;
-  let draggingIndex = null;
-  let startY = 0;
-  let currentY = 0;
-  let isDragging = false;
-  let activePointerId = null;
-  let autoScrollTimer = null;
+  let modalIcon = "共";
 
   function setStatus(message) {
     document.getElementById("status").textContent = message;
@@ -360,7 +496,7 @@
       name: item.name || "",
       hasSpare: item.hasSpare === true || item.hasSpare === "TRUE",
       note: item.note || "",
-      icon: item.icon || "か"
+      icon: item.icon || "共"
     }));
   }
 
@@ -424,7 +560,7 @@
     if (icon === "か") return "icon-ka";
     if (icon === "み") return "icon-mi";
     if (icon === "共") return "icon-kyo";
-    return "icon-ka";
+    return "icon-kyo";
   }
 
   function render() {
@@ -442,6 +578,48 @@
       row.className = "row";
       row.dataset.index = index;
 
+      const normalContent = `
+        <div class="name-text ${item.name ? "" : "empty-text"}">
+          ${escapeHtml(item.name || "名称未入力")}
+        </div>
+
+        <input
+          class="toggle"
+          type="checkbox"
+          ${item.hasSpare ? "checked" : ""}
+          disabled
+        >
+
+        <div class="note-text ${item.note ? "" : "empty-text"}">
+          ${escapeHtml(item.note || "備考なし")}
+        </div>
+      `;
+
+      const editContent = `
+        <input
+          class="name"
+          type="text"
+          placeholder="日用品"
+          value="${escapeHtml(item.name)}"
+          oninput="updateName(${index}, this.value)"
+        >
+
+        <input
+          class="toggle"
+          type="checkbox"
+          ${item.hasSpare ? "checked" : ""}
+          onchange="toggleSpare(${index})"
+        >
+
+        <input
+          class="note"
+          type="text"
+          placeholder="備考"
+          value="${escapeHtml(item.note)}"
+          oninput="updateNote(${index}, this.value)"
+        >
+      `;
+
       row.innerHTML = `
         <div class="delete-check-wrap">
           <input
@@ -452,54 +630,24 @@
           >
         </div>
 
-        <div
-          class="item ${item.hasSpare ? "spare-yes" : "spare-no"}"
-          data-index="${index}"
-          onpointerdown="startLongPress(event, ${index})"
-          onpointermove="moveDragging(event)"
-          onpointerup="endDragging()"
-          onpointercancel="endDragging()"
-        >
+        <div class="item ${item.hasSpare ? "spare-yes" : "spare-no"}">
           <div class="icon-wrap">
             <button
               class="icon-button ${getIconClass(item.icon)}"
               onclick="toggleIconMenu(${index})"
+              ${editMode ? "" : "disabled"}
             >
               ${item.icon}
             </button>
 
             <div class="menu ${openMenuIndex === index ? "" : "hidden"}">
+              <button onclick="selectIcon(${index}, '共')">共同</button>
               <button onclick="selectIcon(${index}, 'か')">かずまさ</button>
               <button onclick="selectIcon(${index}, 'み')">みゆう</button>
-              <button onclick="selectIcon(${index}, '共')">共同</button>
             </div>
           </div>
 
-          <input
-            class="name"
-            type="text"
-            placeholder="日用品"
-            value="${escapeHtml(item.name)}"
-            oninput="updateName(${index}, this.value)"
-            ${editMode ? "readonly" : ""}
-          >
-
-          <input
-            class="toggle"
-            type="checkbox"
-            ${item.hasSpare ? "checked" : ""}
-            onchange="toggleSpare(${index})"
-            ${editMode ? "disabled" : ""}
-          >
-
-          <input
-            class="note"
-            type="text"
-            placeholder="備考"
-            value="${escapeHtml(item.note)}"
-            oninput="updateNote(${index}, this.value)"
-            ${editMode ? "readonly" : ""}
-          >
+          ${editMode ? editContent : normalContent}
         </div>
       `;
 
@@ -519,9 +667,7 @@
     editMode = !editMode;
     selectedIds.clear();
     openMenuIndex = null;
-    endDragging(false);
     render();
-
     setStatus(editMode ? "編集モード" : "通常モード");
   }
 
@@ -534,181 +680,102 @@
   }
 
   function deleteSelectedItems() {
-  clearTimeout(saveTimer);
+    clearTimeout(saveTimer);
 
-  if (selectedIds.size === 0) {
-    setStatus("削除する項目を選んでください");
-    return;
-  }
+    if (selectedIds.size === 0) {
+      setStatus("削除する項目を選んでください");
+      return;
+    }
 
-  items = items.filter(item => !selectedIds.has(item.id));
-  selectedIds.clear();
-  saveItems();
-  render();
-}
-
-  function addItem() {
-    items.push({
-      id: createId(),
-      name: "",
-      hasSpare: false,
-      note: "",
-      icon: "か"
-    });
-
+    items = items.filter(item => !selectedIds.has(item.id));
+    selectedIds.clear();
     saveItems();
     render();
   }
 
   function updateName(index, value) {
+    if (!editMode) return;
     items[index].name = value;
     saveItemsSoon();
   }
 
   function updateNote(index, value) {
+    if (!editMode) return;
     items[index].note = value;
     saveItemsSoon();
   }
 
   function toggleSpare(index) {
-    if (editMode) return;
+    if (!editMode) return;
     items[index].hasSpare = !items[index].hasSpare;
     saveItems();
     render();
   }
 
   function toggleIconMenu(index) {
-    if (editMode) return;
+    if (!editMode) return;
     openMenuIndex = openMenuIndex === index ? null : index;
     render();
   }
 
   function selectIcon(index, icon) {
-    if (editMode) return;
+    if (!editMode) return;
     items[index].icon = icon;
     openMenuIndex = null;
     saveItems();
     render();
   }
 
-  function startLongPress(event, index) {
-    if (!editMode) return;
+  function openAddModal() {
+    modalIcon = "共";
+    document.getElementById("modalName").value = "";
+    document.getElementById("modalNote").value = "";
+    document.getElementById("modalConfirm").disabled = true;
+    updateModalOwnerButtons();
+    document.getElementById("addModal").classList.add("show");
 
-    event.preventDefault();
-
-    startY = event.clientY;
-    currentY = event.clientY;
-    draggingIndex = index;
-    activePointerId = event.pointerId;
-    isDragging = false;
-
-    clearTimeout(longPressTimer);
-
-    const itemEl = document.querySelector(`.item[data-index="${draggingIndex}"]`);
-    if (itemEl) {
-      itemEl.setPointerCapture?.(event.pointerId);
-    }
-
-    longPressTimer = setTimeout(() => {
-      isDragging = true;
-
-      const dragEl = document.querySelector(`.item[data-index="${draggingIndex}"]`);
-      if (dragEl) {
-        dragEl.classList.add("dragging");
-      }
-
-      startAutoScroll();
-      setStatus("並び替え中");
-    }, 1000);
+    setTimeout(() => {
+      document.getElementById("modalName").focus();
+    }, 100);
   }
 
-  function moveDragging(event) {
-    if (!editMode || draggingIndex === null) return;
+  function closeAddModal() {
+    document.getElementById("addModal").classList.remove("show");
+  }
 
-    event.preventDefault();
-    currentY = event.clientY;
+  function setModalIcon(icon) {
+    modalIcon = icon;
+    updateModalOwnerButtons();
+  }
 
-    if (!isDragging) {
-      if (Math.abs(currentY - startY) > 12) {
-        clearTimeout(longPressTimer);
-      }
-      return;
-    }
+  function updateModalOwnerButtons() {
+    document.getElementById("modalOwnerKyo").classList.toggle("selected", modalIcon === "共");
+    document.getElementById("modalOwnerKa").classList.toggle("selected", modalIcon === "か");
+    document.getElementById("modalOwnerMi").classList.toggle("selected", modalIcon === "み");
+  }
 
-    const rows = Array.from(document.querySelectorAll(".row"));
-    const currentRow = rows[draggingIndex];
+  function validateAddModal() {
+    const name = document.getElementById("modalName").value.trim();
+    document.getElementById("modalConfirm").disabled = name.length === 0;
+  }
 
-    if (!currentRow) return;
+  function confirmAddItem() {
+    const name = document.getElementById("modalName").value.trim();
+    const note = document.getElementById("modalNote").value.trim();
 
-    const itemEl = currentRow.querySelector(".item");
-    if (itemEl) {
-      itemEl.style.transform = `translateY(${currentY - startY}px) scale(1.02)`;
-    }
+    if (!name) return;
 
-    const overIndex = rows.findIndex((row, idx) => {
-      if (idx === draggingIndex) return false;
-      const rect = row.getBoundingClientRect();
-      return currentY > rect.top && currentY < rect.bottom;
+    items.push({
+      id: createId(),
+      name: name,
+      hasSpare: false,
+      note: note,
+      icon: modalIcon
     });
 
-    if (overIndex !== -1 && overIndex !== draggingIndex) {
-      const moved = items.splice(draggingIndex, 1)[0];
-      items.splice(overIndex, 0, moved);
-      draggingIndex = overIndex;
-      startY = currentY;
-      render();
-
-      const newItemEl = document.querySelector(`.item[data-index="${draggingIndex}"]`);
-      if (newItemEl) {
-        newItemEl.classList.add("dragging");
-      }
-    }
-  }
-
-  function startAutoScroll() {
-    stopAutoScroll();
-
-    autoScrollTimer = setInterval(() => {
-      if (!isDragging) return;
-
-      const container = document.getElementById("items");
-      const rect = container.getBoundingClientRect();
-      const edgeSize = 56;
-      const scrollSpeed = 8;
-
-      if (currentY < rect.top + edgeSize) {
-        container.scrollTop -= scrollSpeed;
-      } else if (currentY > rect.bottom - edgeSize) {
-        container.scrollTop += scrollSpeed;
-      }
-    }, 16);
-  }
-
-  function stopAutoScroll() {
-    if (autoScrollTimer) {
-      clearInterval(autoScrollTimer);
-      autoScrollTimer = null;
-    }
-  }
-
-  function endDragging(shouldSave = true) {
-    clearTimeout(longPressTimer);
-    stopAutoScroll();
-
-    if (isDragging && shouldSave) {
-      saveItems();
-      setStatus("並び替えを保存しました");
-    }
-
-    const draggingEls = document.querySelectorAll(".dragging");
-    draggingEls.forEach(el => {
-      el.classList.remove("dragging");
-      el.style.transform = "";
-    });
-
-    draggingIndex = null;
-    activePointerId = null;
-    isDragging = false;
+    closeAddModal();
+    saveItems();
+    render();
   }
 
   loadItems();
