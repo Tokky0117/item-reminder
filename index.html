@@ -124,6 +124,21 @@
       overscroll-behavior-y: contain;
     }
 
+    #items .row,
+    #items .empty-list-message {
+      transform: translateY(var(--pull-content-offset, 0px));
+    }
+
+    #items.pull-moving .row,
+    #items.pull-moving .empty-list-message {
+      transition: none;
+    }
+
+    #items.pull-settling .row,
+    #items.pull-settling .empty-list-message {
+      transition: transform 0.22s ease;
+    }
+
     .pull-refresh {
       position: absolute;
       top: -56px;
@@ -138,7 +153,15 @@
       opacity: 0;
       transform: translateY(0);
       transition: opacity 0.18s ease, transform 0.18s ease;
-      z-index: 1;
+      z-index: 2;
+    }
+
+    #items.pull-moving .pull-refresh {
+      transition: opacity 0.08s ease;
+    }
+
+    #items.pull-settling .pull-refresh {
+      transition: opacity 0.18s ease, transform 0.22s ease;
     }
 
     .pull-refresh.visible {
@@ -909,11 +932,18 @@
     }
 
     function updatePullRefreshVisual() {
+      const container = document.getElementById("items");
       const refresh = document.querySelector(".pull-refresh");
-      if (!refresh) return;
+      if (!container || !refresh) return;
 
       const visible = pullDistance > 0 || isRefreshing;
       const distance = isRefreshing ? REFRESH_OFFSET : pullDistance;
+      const contentOffset = visible ? distance : 0;
+
+      container.style.setProperty("--pull-content-offset", contentOffset + "px");
+
+      container.classList.toggle("pull-moving", isPulling && !isRefreshing);
+      container.classList.toggle("pull-settling", !isPulling || isRefreshing);
 
       refresh.style.transform = `translateY(${distance}px)`;
       refresh.classList.toggle("visible", visible);
@@ -923,10 +953,24 @@
     }
 
     function resetPullRefreshVisual() {
+      const container = document.getElementById("items");
+
       isPulling = false;
       pullStartY = 0;
       pullDistance = 0;
+
+      if (container) {
+        container.classList.remove("pull-moving");
+        container.classList.add("pull-settling");
+      }
+
       updatePullRefreshVisual();
+
+      setTimeout(() => {
+        if (container) {
+          container.classList.remove("pull-settling");
+        }
+      }, 240);
     }
 
     function setupPullToRefresh() {
