@@ -171,7 +171,7 @@
     }
 
     /* =========================================================
-      4. 左側チェック欄：編集モード / 買いものモード
+      4. 左側チェック欄：編集モード
     ========================================================= */
     .side-check-wrap {
       width: 30px;
@@ -181,8 +181,7 @@
       justify-content: center;
     }
 
-    .app.edit-mode .side-check-wrap,
-    .app.shopping-mode .side-check-wrap {
+    .app.edit-mode .side-check-wrap {
       display: flex;
     }
 
@@ -190,10 +189,6 @@
       width: 24px;
       height: 24px;
       accent-color: var(--danger-color);
-    }
-
-    .app.shopping-mode .side-check {
-      accent-color: var(--primary-color);
     }
 
     /* =========================================================
@@ -212,14 +207,6 @@
       user-select: none;
       -webkit-user-select: none;
       -webkit-touch-callout: none;
-    }
-
-    .spare-yes {
-      background: #d4ffd4;
-    }
-
-    .spare-no {
-      background: #ffd4d4;
     }
 
     .text-area {
@@ -368,7 +355,7 @@
     }
 
     /* =========================================================
-      9. 右下フローティング操作：削除 / 購入
+      9. 右下フローティング操作：削除
     ========================================================= */
     .floating-action-area {
       position: fixed;
@@ -383,12 +370,7 @@
       display: block;
     }
 
-    .app.shopping-mode .purchase-area {
-      display: block;
-    }
-
-    .delete-selected-button,
-    .purchase-button {
+    .delete-selected-button {
       border: none;
       color: white;
       font-size: 16px;
@@ -397,14 +379,7 @@
       border-radius: 18px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.22);
       pointer-events: auto;
-    }
-
-    .delete-selected-button {
       background: var(--danger-color);
-    }
-
-    .purchase-button {
-      background: var(--primary-color);
     }
 
     /* =========================================================
@@ -429,9 +404,21 @@
       border-radius: 16px;
       background: var(--bg-color);
       color: var(--primary-color);
-      font-size: 26px;
-      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
+      padding: 0;
+    }
+
+    .undo-icon {
+      width: 34px;
+      height: 34px;
+      stroke: currentColor;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
     }
 
     .undo-button:disabled {
@@ -587,12 +574,13 @@
       <button class="delete-selected-button" onclick="openDeleteConfirm()">削除</button>
     </div>
 
-    <div class="floating-action-area purchase-area">
-      <button class="purchase-button" onclick="openPurchaseConfirm()">購入</button>
-    </div>
-
     <div class="footer">
-      <button class="undo-button" id="undoButton" onclick="openUndoConfirm()" aria-label="ひとつ前に戻る" disabled>↶</button>
+      <button class="undo-button" id="undoButton" onclick="openUndoConfirm()" aria-label="ひとつ前に戻る" disabled>
+        <svg class="undo-icon" viewBox="0 0 40 40" aria-hidden="true">
+          <path d="M15 11 L8 18 L15 25"></path>
+          <path d="M9 18 H23 C29 18 33 22 33 27 C33 32 29 36 23 36 H17"></path>
+        </svg>
+      </button>
       <button class="add-button" onclick="openAddModal()" aria-label="日用品を追加">＋日用品を追加</button>
     </div>
   </div>
@@ -649,18 +637,6 @@
     </div>
   </div>
 
-  <!-- 購入確認モーダル -->
-  <div class="modal-backdrop" id="purchaseConfirmModal">
-    <div class="modal">
-      <h2>購入確認</h2>
-      <div class="confirm-message">✓した日用品を購入しますか？</div>
-      <div class="modal-actions">
-        <button class="cancel-button" onclick="closePurchaseConfirm()">いいえ</button>
-        <button class="confirm-button" onclick="confirmPurchaseItems()">はい</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ひとつ前に戻る確認モーダル -->
   <div class="modal-backdrop" id="undoConfirmModal">
     <div class="modal">
@@ -687,7 +663,7 @@
     let shoppingMode = false;
 
     let selectedIds = new Set();
-    let purchaseIds = new Set();
+    let shoppingModeItemIds = new Set();
 
     let modalMode = "add";
     let editingItemId = null;
@@ -772,7 +748,11 @@
       window[callbackName] = function(data) {
         items = normalizeItems(data);
         selectedIds.clear();
-        purchaseIds.clear();
+
+        if (!shoppingMode) {
+          shoppingModeItemIds.clear();
+        }
+
         clearPreviousItems();
         render();
         setStatus(fromPull ? "更新しました" : "読み込み完了");
@@ -928,7 +908,11 @@
     }
 
     function getDisplayItems() {
-      return shoppingMode ? items.filter(item => !item.hasSpare) : items;
+      if (!shoppingMode) {
+        return items;
+      }
+
+      return items.filter(item => shoppingModeItemIds.has(item.id));
     }
 
     function renderEmptyShoppingMessage(container) {
@@ -946,7 +930,7 @@
       row.innerHTML = `
         ${createSideCheckHtml(item)}
 
-        <div class="item ${item.hasSpare ? "spare-yes" : "spare-no"}">
+        <div class="item">
           ${createIconHtml(item)}
           ${createItemContentHtml(item, index)}
         </div>
@@ -964,19 +948,6 @@
               type="checkbox"
               ${selectedIds.has(item.id) ? "checked" : ""}
               onchange="toggleDeleteCheck('${item.id}', this.checked)"
-            >
-          </div>
-        `;
-      }
-
-      if (shoppingMode) {
-        return `
-          <div class="side-check-wrap">
-            <input
-              class="side-check"
-              type="checkbox"
-              ${purchaseIds.has(item.id) ? "checked" : ""}
-              onchange="togglePurchaseCheck('${item.id}', this.checked)"
             >
           </div>
         `;
@@ -1022,7 +993,7 @@
             class="switch-input"
             type="checkbox"
             ${item.hasSpare ? "checked" : ""}
-            ${(editMode || shoppingMode) ? "disabled" : ""}
+            ${editMode ? "disabled" : ""}
             onchange="toggleSpare(${index})"
           >
           <label class="switch-label" for="toggle-${item.id}"></label>
@@ -1031,10 +1002,11 @@
     }
 
     /* =========================================================
-      5. 通常モード操作
+      5. 通常モード / 買いものモード共通操作
     ========================================================= */
     function toggleSpare(index) {
-      if (editMode || shoppingMode) return;
+      if (editMode) return;
+      if (index < 0 || !items[index]) return;
 
       rememberPreviousItems();
       items[index].hasSpare = !items[index].hasSpare;
@@ -1069,17 +1041,20 @@
       if (editMode) return;
 
       shoppingMode = !shoppingMode;
-      purchaseIds.clear();
+      selectedIds.clear();
+
+      if (shoppingMode) {
+        shoppingModeItemIds = new Set(
+          items
+            .filter(item => !item.hasSpare)
+            .map(item => item.id)
+        );
+      } else {
+        shoppingModeItemIds.clear();
+      }
+
       render();
       setStatus(shoppingMode ? "買いものモード" : "通常モード");
-    }
-
-    function togglePurchaseCheck(id, checked) {
-      if (checked) {
-        purchaseIds.add(id);
-      } else {
-        purchaseIds.delete(id);
-      }
     }
 
     /* =========================================================
@@ -1222,45 +1197,7 @@
     }
 
     /* =========================================================
-      10. 購入確認モーダル
-    ========================================================= */
-    function openPurchaseConfirm() {
-      if (purchaseIds.size === 0) {
-        setStatus("購入する項目を選んでください");
-        return;
-      }
-
-      document.getElementById("purchaseConfirmModal").classList.add("show");
-    }
-
-    function closePurchaseConfirm() {
-      document.getElementById("purchaseConfirmModal").classList.remove("show");
-    }
-
-    function confirmPurchaseItems() {
-      rememberPreviousItems();
-      items = items.map(item => {
-        if (purchaseIds.has(item.id)) {
-          return {
-            ...item,
-            hasSpare: true
-          };
-        }
-
-        return item;
-      });
-
-      purchaseIds.clear();
-      shoppingMode = false;
-
-      closePurchaseConfirm();
-      saveItems();
-      render();
-      setStatus("購入済みにしました");
-    }
-
-    /* =========================================================
-      11. ひとつ前に戻る
+      10. ひとつ前に戻る
     ========================================================= */
     function openUndoConfirm() {
       if (!previousItems) return;
@@ -1277,7 +1214,7 @@
       items = cloneItems(previousItems);
       previousItems = null;
       selectedIds.clear();
-      purchaseIds.clear();
+      shoppingModeItemIds.clear();
       editMode = false;
       shoppingMode = false;
 
@@ -1288,7 +1225,7 @@
     }
 
     /* =========================================================
-      12. 初期実行
+      11. 初期実行
     ========================================================= */
     setupPullToRefresh();
     loadItems();
