@@ -11,6 +11,12 @@
   <link rel="manifest" href="manifest.json">
 
   <style>
+    :root {
+      --footer-height: 86px;
+      --policy-gap: 16px;
+      --bottom-space: calc(var(--footer-height) + var(--policy-gap) + env(safe-area-inset-bottom));
+    }
+
     body {
       font-family: sans-serif;
       background: #f5f5f5;
@@ -48,6 +54,24 @@
       margin: 0 0 8px;
     }
 
+    .shopping-button {
+      position: absolute;
+      left: 0;
+      top: -2px;
+      border: none;
+      background: #f5f5f5;
+      color: #007aff;
+      font-size: 14px;
+      font-weight: bold;
+      height: 36px;
+      padding: 0 8px;
+      border-radius: 10px;
+    }
+
+    .shopping-button.active {
+      background: #e8f2ff;
+    }
+
     .edit-button {
       position: absolute;
       right: 0;
@@ -80,7 +104,7 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      padding: 10px 10px calc(210px + env(safe-area-inset-bottom));
+      padding: 10px 10px var(--bottom-space);
       box-sizing: border-box;
       -webkit-overflow-scrolling: touch;
       position: relative;
@@ -93,7 +117,7 @@
       position: relative;
     }
 
-    .delete-check-wrap {
+    .side-check-wrap {
       width: 30px;
       flex-shrink: 0;
       display: none;
@@ -101,14 +125,19 @@
       justify-content: center;
     }
 
-    .app.edit-mode .delete-check-wrap {
+    .app.edit-mode .side-check-wrap,
+    .app.shopping-mode .side-check-wrap {
       display: flex;
     }
 
-    .delete-check {
+    .side-check {
       width: 24px;
       height: 24px;
       accent-color: #ff3b30;
+    }
+
+    .app.shopping-mode .side-check {
+      accent-color: #007aff;
     }
 
     .item {
@@ -120,6 +149,7 @@
       align-items: center;
       flex: 1;
       min-width: 0;
+      min-height: 56px;
       user-select: none;
       -webkit-user-select: none;
       -webkit-touch-callout: none;
@@ -140,6 +170,10 @@
       display: flex;
       flex-direction: column;
       gap: 3px;
+    }
+
+    .text-area.no-note {
+      justify-content: center;
     }
 
     .name-text {
@@ -268,7 +302,7 @@
       display: none;
     }
 
-    .delete-area {
+    .floating-action-area {
       position: fixed;
       right: 14px;
       bottom: calc(86px + env(safe-area-inset-bottom));
@@ -281,9 +315,25 @@
       display: block;
     }
 
+    .app.shopping-mode .purchase-area {
+      display: block;
+    }
+
     .delete-selected-button {
       border: none;
       background: #ff3b30;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 12px 18px;
+      border-radius: 18px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.22);
+      pointer-events: auto;
+    }
+
+    .purchase-button {
+      border: none;
+      background: #007aff;
       color: white;
       font-size: 16px;
       font-weight: bold;
@@ -428,9 +478,20 @@
       font-weight: bold;
     }
 
+    .confirm-button.danger {
+      background: #ff3b30;
+    }
+
     .confirm-button:disabled {
       background: #c8c8c8;
       color: #777;
+    }
+
+    .confirm-message {
+      text-align: center;
+      font-size: 16px;
+      line-height: 1.6;
+      margin: 8px 0 18px;
     }
   </style>
 </head>
@@ -440,6 +501,7 @@
 <div class="app" id="app">
   <div class="header">
     <div class="title-row">
+      <button class="shopping-button" onclick="toggleShoppingMode()" aria-label="買いものリスト">買いもの</button>
       <h1>日用品リスト</h1>
       <button class="edit-button" onclick="toggleEditMode()" aria-label="編集">編集</button>
     </div>
@@ -448,8 +510,12 @@
 
   <div id="items"></div>
 
-  <div class="delete-area">
-    <button class="delete-selected-button" onclick="deleteSelectedItems()">削除</button>
+  <div class="floating-action-area delete-area">
+    <button class="delete-selected-button" onclick="openDeleteConfirm()">削除</button>
+  </div>
+
+  <div class="floating-action-area purchase-area">
+    <button class="purchase-button" onclick="openPurchaseConfirm()">購入</button>
   </div>
 
   <div class="footer">
@@ -497,6 +563,28 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="deleteConfirmModal">
+  <div class="modal">
+    <h2>削除確認</h2>
+    <div class="confirm-message" id="deleteConfirmMessage">0点を削除しますか？</div>
+    <div class="modal-actions">
+      <button class="cancel-button" onclick="closeDeleteConfirm()">いいえ</button>
+      <button class="confirm-button danger" onclick="confirmDeleteItems()">はい</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="purchaseConfirmModal">
+  <div class="modal">
+    <h2>購入確認</h2>
+    <div class="confirm-message">✓した日用品を購入しますか？</div>
+    <div class="modal-actions">
+      <button class="cancel-button" onclick="closePurchaseConfirm()">いいえ</button>
+      <button class="confirm-button" onclick="confirmPurchaseItems()">はい</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxDuS5ZIUcb6ifMwJ5S86CZrV7YCnMsolM0lKbw7p71CK2mn_lWtT1LRzt9iIGpX04h/exec";
 
@@ -504,7 +592,9 @@
   let openMenuIndex = null;
   let saveTimer = null;
   let editMode = false;
+  let shoppingMode = false;
   let selectedIds = new Set();
+  let purchaseIds = new Set();
 
   let modalIcon = "共";
 
@@ -534,6 +624,7 @@
     window[callbackName] = function(data) {
       items = normalizeItems(data);
       selectedIds.clear();
+      purchaseIds.clear();
       openMenuIndex = null;
       render();
       setStatus("読み込み完了");
@@ -592,26 +683,41 @@
   function render() {
     const app = document.getElementById("app");
     app.classList.toggle("edit-mode", editMode);
+    app.classList.toggle("shopping-mode", shoppingMode);
 
-    const editButton = document.querySelector(".edit-button");
-    editButton.classList.toggle("active", editMode);
+    document.querySelector(".edit-button").classList.toggle("active", editMode);
+    document.querySelector(".shopping-button").classList.toggle("active", shoppingMode);
 
     const container = document.getElementById("items");
     container.innerHTML = "";
 
-    items.forEach((item, index) => {
+    const displayItems = shoppingMode
+      ? items.filter(item => !item.hasSpare)
+      : items;
+
+    if (shoppingMode && displayItems.length === 0) {
+      const empty = document.createElement("div");
+      empty.style.textAlign = "center";
+      empty.style.color = "#777";
+      empty.style.padding = "30px";
+      empty.textContent = "買いもの対象はありません";
+      container.appendChild(empty);
+      return;
+    }
+
+    displayItems.forEach((item) => {
+      const index = items.findIndex(baseItem => baseItem.id === item.id);
       const row = document.createElement("div");
       row.className = "row";
-      row.dataset.index = index;
+
+      const hasNote = item.note.trim().length > 0;
 
       const normalContent = `
-        <div class="text-area">
+        <div class="text-area ${hasNote ? "" : "no-note"}">
           <div class="name-text ${item.name ? "" : "empty-text"}">
             ${escapeHtml(item.name || "名称未入力")}
           </div>
-          <div class="note-text ${item.note ? "" : "empty-text"}">
-            ${escapeHtml(item.note || "備考なし")}
-          </div>
+          ${hasNote ? `<div class="note-text">${escapeHtml(item.note)}</div>` : ""}
         </div>
 
         <div class="toggle-wrap">
@@ -619,6 +725,7 @@
             class="toggle"
             type="checkbox"
             ${item.hasSpare ? "checked" : ""}
+            ${shoppingMode ? "disabled" : ""}
             onchange="toggleSpare(${index})"
           >
         </div>
@@ -653,15 +760,36 @@
         </div>
       `;
 
+      let sideCheck = "";
+
+      if (editMode) {
+        sideCheck = `
+          <div class="side-check-wrap">
+            <input
+              class="side-check"
+              type="checkbox"
+              ${selectedIds.has(item.id) ? "checked" : ""}
+              onchange="toggleDeleteCheck('${item.id}', this.checked)"
+            >
+          </div>
+        `;
+      } else if (shoppingMode) {
+        sideCheck = `
+          <div class="side-check-wrap">
+            <input
+              class="side-check"
+              type="checkbox"
+              ${purchaseIds.has(item.id) ? "checked" : ""}
+              onchange="togglePurchaseCheck('${item.id}', this.checked)"
+            >
+          </div>
+        `;
+      } else {
+        sideCheck = `<div class="side-check-wrap"></div>`;
+      }
+
       row.innerHTML = `
-        <div class="delete-check-wrap">
-          <input
-            class="delete-check"
-            type="checkbox"
-            ${selectedIds.has(item.id) ? "checked" : ""}
-            onchange="toggleDeleteCheck('${item.id}', this.checked)"
-          >
-        </div>
+        ${sideCheck}
 
         <div class="item ${item.hasSpare ? "spare-yes" : "spare-no"}">
           <div class="icon-wrap">
@@ -697,11 +825,29 @@
   }
 
   function toggleEditMode() {
+    if (shoppingMode) {
+      shoppingMode = false;
+      purchaseIds.clear();
+    }
+
     editMode = !editMode;
     selectedIds.clear();
     openMenuIndex = null;
     render();
     setStatus(editMode ? "編集モード" : "通常モード");
+  }
+
+  function toggleShoppingMode() {
+    if (editMode) {
+      editMode = false;
+      selectedIds.clear();
+    }
+
+    shoppingMode = !shoppingMode;
+    purchaseIds.clear();
+    openMenuIndex = null;
+    render();
+    setStatus(shoppingMode ? "買いものモード" : "通常モード");
   }
 
   function toggleDeleteCheck(id, checked) {
@@ -712,7 +858,15 @@
     }
   }
 
-  function deleteSelectedItems() {
+  function togglePurchaseCheck(id, checked) {
+    if (checked) {
+      purchaseIds.add(id);
+    } else {
+      purchaseIds.delete(id);
+    }
+  }
+
+  function openDeleteConfirm() {
     clearTimeout(saveTimer);
 
     if (selectedIds.size === 0) {
@@ -720,10 +874,55 @@
       return;
     }
 
+    document.getElementById("deleteConfirmMessage").textContent =
+      selectedIds.size + "点を削除しますか？";
+
+    document.getElementById("deleteConfirmModal").classList.add("show");
+  }
+
+  function closeDeleteConfirm() {
+    document.getElementById("deleteConfirmModal").classList.remove("show");
+  }
+
+  function confirmDeleteItems() {
     items = items.filter(item => !selectedIds.has(item.id));
     selectedIds.clear();
+    closeDeleteConfirm();
     saveItems();
     render();
+  }
+
+  function openPurchaseConfirm() {
+    if (purchaseIds.size === 0) {
+      setStatus("購入する項目を選んでください");
+      return;
+    }
+
+    document.getElementById("purchaseConfirmModal").classList.add("show");
+  }
+
+  function closePurchaseConfirm() {
+    document.getElementById("purchaseConfirmModal").classList.remove("show");
+  }
+
+  function confirmPurchaseItems() {
+    items = items.map(item => {
+      if (purchaseIds.has(item.id)) {
+        return {
+          ...item,
+          hasSpare: true
+        };
+      }
+
+      return item;
+    });
+
+    purchaseIds.clear();
+    shoppingMode = false;
+    closePurchaseConfirm();
+    saveItems();
+    render();
+    setStatus("購入済みにしました");
   }
 
   function updateName(index, value) {
@@ -739,7 +938,7 @@
   }
 
   function toggleSpare(index) {
-    if (editMode) return;
+    if (editMode || shoppingMode) return;
     items[index].hasSpare = !items[index].hasSpare;
     saveItems();
     render();
