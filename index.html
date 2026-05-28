@@ -2,36 +2,102 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>日用品リマインダー</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  >
+  <title>日用品リスト</title>
 
   <link rel="manifest" href="manifest.json">
 
   <style>
+    /* =========================================================
+      1. 基本設定
+    ========================================================= */
+    :root {
+      --footer-height: 86px;
+      --policy-gap: 16px;
+      --bottom-space: calc(var(--footer-height) + var(--policy-gap) + env(safe-area-inset-bottom));
+      --bg-color: #f5f5f5;
+      --primary-color: #007aff;
+      --danger-color: #ff3b30;
+    }
+
     body {
       font-family: sans-serif;
-      background: #f5f5f5;
+      background: var(--bg-color);
       margin: 0;
       height: 100vh;
       overflow: hidden;
+      touch-action: manipulation;
     }
 
     .app {
-      height: 100vh;
+      height: 100dvh;
+      min-height: 0;
       display: flex;
       flex-direction: column;
+      background: var(--bg-color);
     }
 
+    .hidden {
+      display: none;
+    }
+
+    /* =========================================================
+      2. ヘッダー
+    ========================================================= */
     .header {
       flex-shrink: 0;
-      background: #f5f5f5;
-      padding: 16px 16px 8px;
+      background: var(--bg-color);
+      padding: 14px 12px 6px;
+      position: relative;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
     }
 
     h1 {
       text-align: center;
       font-size: 24px;
       margin: 0 0 8px;
+    }
+
+    .shopping-button,
+    .edit-button {
+      position: absolute;
+      top: -2px;
+      border: none;
+      background: var(--bg-color);
+      color: var(--primary-color);
+      font-weight: bold;
+      height: 36px;
+      padding: 0 8px;
+      border-radius: 10px;
+    }
+
+    .shopping-button {
+      left: 0;
+      font-size: 14px;
+    }
+
+    .edit-button {
+      right: 0;
+      font-size: 16px;
+    }
+
+    .shopping-button.active,
+    .edit-button.active {
+      background: #e8f2ff;
+    }
+
+    .shopping-button:disabled,
+    .edit-button:disabled {
+      opacity: 0.35;
     }
 
     #status {
@@ -41,45 +107,111 @@
       min-height: 18px;
     }
 
+    /* =========================================================
+      3. リスト領域
+    ========================================================= */
     #items {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      padding: 12px 12px 96px;
+      gap: 9px;
+      padding: 0 10px 10px;
       box-sizing: border-box;
+      -webkit-overflow-scrolling: touch;
+      position: relative;
+      overscroll-behavior-y: contain;
     }
 
+    .pull-refresh {
+      position: absolute;
+      top: -56px;
+      left: 0;
+      right: 0;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary-color);
+      pointer-events: none;
+    }
+
+    .refresh-icon {
+      width: 28px;
+      height: 28px;
+      border: 4px solid var(--primary-color);
+      border-right-color: transparent;
+      border-radius: 50%;
+      box-sizing: border-box;
+      display: inline-block;
+      transform-origin: 50% 50%;
+    }
+
+    .refresh-icon.spinning {
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+    }
+
+    .empty-list-message {
+      text-align: center;
+      color: #777;
+      padding: 30px;
+    }
+
+    /* =========================================================
+      4. 左側チェック欄：編集モード / 買いものモード
+    ========================================================= */
+    .side-check-wrap {
+      width: 30px;
+      flex-shrink: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .app.edit-mode .side-check-wrap,
+    .app.shopping-mode .side-check-wrap {
+      display: flex;
+    }
+
+    .side-check {
+      width: 24px;
+      height: 24px;
+      accent-color: var(--danger-color);
+    }
+
+    .app.shopping-mode .side-check {
+      accent-color: var(--primary-color);
+    }
+
+    /* =========================================================
+      5. 項目バナー
+    ========================================================= */
     .item {
       background: white;
-      padding: 10px;
-      border-radius: 12px;
+      padding: 7px 10px;
+      border-radius: 8px;
       display: flex;
       gap: 8px;
       align-items: center;
-    }
-
-    input[type="text"] {
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      font-size: 16px;
-      min-width: 0;
-    }
-
-    .name {
-      flex: 2;
-    }
-
-    .note {
       flex: 1;
-    }
-
-    .toggle {
-      width: 28px;
-      height: 28px;
-      flex-shrink: 0;
+      min-width: 0;
+      min-height: 50px;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
     }
 
     .spare-yes {
@@ -90,18 +222,62 @@
       background: #ffd4d4;
     }
 
+    .text-area {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .text-area.no-note {
+      justify-content: center;
+    }
+
+    .name-text {
+      font-size: 15px;
+      font-weight: bold;
+      color: #111;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      line-height: 1.25;
+    }
+
+    .note-text {
+      font-size: 11px;
+      color: #666;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      line-height: 1.25;
+    }
+
+    .empty-text {
+      color: #999;
+      font-weight: normal;
+    }
+
+    /* =========================================================
+      6. 担当アイコン
+    ========================================================= */
     .icon-wrap {
       position: relative;
       flex-shrink: 0;
     }
 
     .icon-button {
-      width: 42px;
-      height: 42px;
+      width: 34px;
+      height: 34px;
       border: none;
       border-radius: 50%;
       font-weight: bold;
-      font-size: 16px;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .icon-button:disabled {
+      opacity: 1;
     }
 
     .icon-ka {
@@ -119,39 +295,123 @@
       color: white;
     }
 
-    .menu {
-      position: absolute;
-      top: 48px;
-      left: 0;
-      background: white;
-      border: 1px solid #ccc;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      overflow: hidden;
-      z-index: 10;
-      min-width: 120px;
-    }
-
-    .menu button {
-      display: block;
-      width: 100%;
-      padding: 10px;
+    /* =========================================================
+      7. 項目編集ボタン
+    ========================================================= */
+    .item-edit-button {
+      width: 34px;
+      height: 34px;
       border: none;
-      background: white;
-      text-align: left;
-      font-size: 14px;
+      border-radius: 10px;
+      background: transparent;
+      color: #555;
+      font-size: 24px;
+      font-weight: bold;
+      flex-shrink: 0;
+      display: none;
+      line-height: 1;
     }
 
-    .hidden {
+    .app.edit-mode .item-edit-button {
+      display: block;
+    }
+
+    /* =========================================================
+      8. iPhone風 予備トグル
+    ========================================================= */
+    .toggle-wrap {
+      flex-shrink: 0;
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .switch-input {
       display: none;
     }
 
+    .switch-label {
+      width: 48px;
+      height: 28px;
+      border-radius: 999px;
+      background: #c8c8c8;
+      position: relative;
+      display: inline-block;
+      transition: background 0.2s ease, opacity 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .switch-label::after {
+      content: "";
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      top: 2px;
+      left: 2px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      transition: transform 0.2s ease;
+    }
+
+    .switch-input:checked + .switch-label {
+      background: var(--primary-color);
+    }
+
+    .switch-input:checked + .switch-label::after {
+      transform: translateX(20px);
+    }
+
+    .switch-input:disabled + .switch-label {
+      opacity: 0.4;
+    }
+
+    /* =========================================================
+      9. 右下フローティング操作：削除 / 購入
+    ========================================================= */
+    .floating-action-area {
+      position: fixed;
+      right: 14px;
+      bottom: calc(96px + env(safe-area-inset-bottom));
+      display: none;
+      z-index: 60;
+      pointer-events: none;
+    }
+
+    .app.edit-mode .delete-area {
+      display: block;
+    }
+
+    .app.shopping-mode .purchase-area {
+      display: block;
+    }
+
+    .delete-selected-button,
+    .purchase-button {
+      border: none;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 12px 18px;
+      border-radius: 18px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.22);
+      pointer-events: auto;
+    }
+
+    .delete-selected-button {
+      background: var(--danger-color);
+    }
+
+    .purchase-button {
+      background: var(--primary-color);
+    }
+
+    /* =========================================================
+      10. 下部固定操作バー
+    ========================================================= */
     .footer {
       flex-shrink: 0;
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
       display: flex;
       gap: 12px;
       align-items: center;
@@ -159,18 +419,24 @@
       background: rgba(245, 245, 245, 0.96);
       box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
       box-sizing: border-box;
+      z-index: 50;
     }
 
-    .reload-button {
+    .undo-button {
       width: 64px;
       height: 54px;
       border: none;
       border-radius: 16px;
-      background: #666;
-      color: white;
-      font-size: 28px;
+      background: var(--bg-color);
+      color: var(--primary-color);
+      font-size: 26px;
       font-weight: bold;
       flex-shrink: 0;
+    }
+
+    .undo-button:disabled {
+      color: #aaa;
+      opacity: 0.6;
     }
 
     .add-button {
@@ -178,252 +444,858 @@
       height: 58px;
       border: none;
       border-radius: 18px;
-      background: #007aff;
+      background: var(--primary-color);
       color: white;
-      font-size: 34px;
+      font-size: 20px;
       font-weight: bold;
     }
 
-    @media (max-width: 480px) {
-      .header {
-        padding: 14px 12px 6px;
-      }
+    /* =========================================================
+      11. モーダル共通
+    ========================================================= */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      box-sizing: border-box;
+      z-index: 100;
+    }
 
-      #items {
-        padding: 10px 10px 94px;
-      }
+    .modal-backdrop.show {
+      display: flex;
+    }
 
-      .item {
-        gap: 6px;
-      }
+    .modal {
+      width: 100%;
+      max-width: 420px;
+      background: white;
+      border-radius: 18px;
+      padding: 18px;
+      box-sizing: border-box;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+    }
 
-      .icon-button {
-        width: 36px;
-        height: 36px;
-        font-size: 14px;
-      }
+    .modal h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+      text-align: center;
+    }
 
-      input[type="text"] {
-        padding: 8px;
-        font-size: 14px;
-      }
+    .field {
+      margin-bottom: 14px;
+    }
 
-      .note {
-        max-width: 100px;
-      }
+    .field label {
+      display: block;
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    .modal input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    .owner-options {
+      display: flex;
+      gap: 8px;
+    }
+
+    .owner-option {
+      flex: 1;
+      border: 1px solid #ccc;
+      background: white;
+      border-radius: 12px;
+      padding: 10px 6px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .owner-option.selected {
+      border: 2px solid var(--primary-color);
+      background: #e8f2ff;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .cancel-button,
+    .confirm-button {
+      flex: 1;
+      height: 48px;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .cancel-button {
+      background: #eeeeee;
+      color: #333;
+    }
+
+    .confirm-button {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    .confirm-button.danger {
+      background: var(--danger-color);
+    }
+
+    .confirm-button:disabled {
+      background: #c8c8c8;
+      color: #777;
+    }
+
+    .confirm-message {
+      text-align: center;
+      font-size: 16px;
+      line-height: 1.6;
+      margin: 8px 0 18px;
     }
   </style>
 </head>
 
 <body>
+  <div class="app" id="app">
+    <div class="header">
+      <div class="title-row">
+        <button class="shopping-button" onclick="toggleShoppingMode()" aria-label="買いものリスト">買いもの</button>
+        <h1>日用品リスト</h1>
+        <button class="edit-button" onclick="toggleEditMode()" aria-label="編集">編集</button>
+      </div>
+      <div id="status">読み込み中...</div>
+    </div>
 
-<div class="app">
-  <div class="header">
-    <h1>日用品リマインダー</h1>
-    <div id="status">読み込み中...</div>
+    <div id="items"></div>
+
+    <div class="floating-action-area delete-area">
+      <button class="delete-selected-button" onclick="openDeleteConfirm()">削除</button>
+    </div>
+
+    <div class="floating-action-area purchase-area">
+      <button class="purchase-button" onclick="openPurchaseConfirm()">購入</button>
+    </div>
+
+    <div class="footer">
+      <button class="undo-button" id="undoButton" onclick="openUndoConfirm()" aria-label="ひとつ前に戻る" disabled>↶</button>
+      <button class="add-button" onclick="openAddModal()" aria-label="日用品を追加">＋日用品を追加</button>
+    </div>
   </div>
 
-  <div id="items"></div>
+  <!-- 追加 / 編集 共通モーダル -->
+  <div class="modal-backdrop" id="itemModal">
+    <div class="modal">
+      <h2 id="itemModalTitle">日用品を追加</h2>
 
-  <div class="footer">
-    <button class="reload-button" onclick="loadItems()" aria-label="再読み込み">↻</button>
-    <button class="add-button" onclick="addItem()" aria-label="追加">＋</button>
+      <div class="field">
+        <label>担当</label>
+        <div class="owner-options">
+          <button class="owner-option selected" id="modalOwnerKyo" onclick="setModalIcon('共')">共同</button>
+          <button class="owner-option" id="modalOwnerKa" onclick="setModalIcon('か')">かずまさ</button>
+          <button class="owner-option" id="modalOwnerMi" onclick="setModalIcon('み')">みゆう</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>項目名</label>
+        <input
+          id="modalName"
+          type="text"
+          placeholder="例：トイレットペーパー"
+          oninput="validateItemModal()"
+        >
+      </div>
+
+      <div class="field">
+        <label>備考</label>
+        <input
+          id="modalNote"
+          type="text"
+          placeholder="任意"
+        >
+      </div>
+
+      <div class="modal-actions">
+        <button class="cancel-button" onclick="closeItemModal()">キャンセル</button>
+        <button class="confirm-button" id="modalConfirm" onclick="confirmItemModal()" disabled>決定</button>
+      </div>
+    </div>
   </div>
-</div>
 
-<script>
-  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxDuS5ZIUcb6ifMwJ5S86CZrV7YCnMsolM0lKbw7p71CK2mn_lWtT1LRzt9iIGpX04h/exec";
+  <!-- 削除確認モーダル -->
+  <div class="modal-backdrop" id="deleteConfirmModal">
+    <div class="modal">
+      <h2>削除確認</h2>
+      <div class="confirm-message" id="deleteConfirmMessage">0点を削除しますか？</div>
+      <div class="modal-actions">
+        <button class="cancel-button" onclick="closeDeleteConfirm()">いいえ</button>
+        <button class="confirm-button danger" onclick="confirmDeleteItems()">はい</button>
+      </div>
+    </div>
+  </div>
 
-  let items = [];
-  let openMenuIndex = null;
-  let saveTimer = null;
+  <!-- 購入確認モーダル -->
+  <div class="modal-backdrop" id="purchaseConfirmModal">
+    <div class="modal">
+      <h2>購入確認</h2>
+      <div class="confirm-message">✓した日用品を購入しますか？</div>
+      <div class="modal-actions">
+        <button class="cancel-button" onclick="closePurchaseConfirm()">いいえ</button>
+        <button class="confirm-button" onclick="confirmPurchaseItems()">はい</button>
+      </div>
+    </div>
+  </div>
 
-  function setStatus(message) {
-    document.getElementById("status").textContent = message;
-  }
+  <!-- ひとつ前に戻る確認モーダル -->
+  <div class="modal-backdrop" id="undoConfirmModal">
+    <div class="modal">
+      <h2>確認</h2>
+      <div class="confirm-message">ひとつ前のリストに戻しますか？</div>
+      <div class="modal-actions">
+        <button class="cancel-button" onclick="closeUndoConfirm()">いいえ</button>
+        <button class="confirm-button" onclick="confirmUndo()">はい</button>
+      </div>
+    </div>
+  </div>
 
-  function createId() {
-    return Date.now().toString() + "-" + Math.random().toString(36).slice(2);
-  }
+  <script>
+    /* =========================================================
+      1. 初期設定・状態変数
+    ========================================================= */
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxDuS5ZIUcb6ifMwJ5S86CZrV7YCnMsolM0lKbw7p71CK2mn_lWtT1LRzt9iIGpX04h/exec";
+    const REFRESH_OFFSET = 56;
 
-  function normalizeItems(data) {
-    return data.map(item => ({
-      id: item.id || createId(),
-      name: item.name || "",
-      hasSpare: item.hasSpare === true || item.hasSpare === "TRUE",
-      note: item.note || "",
-      icon: item.icon || "か"
-    }));
-  }
+    let items = [];
+    let saveTimer = null;
 
-  function loadItems() {
-    setStatus("読み込み中...");
+    let editMode = false;
+    let shoppingMode = false;
 
-    const callbackName = "loadItemsCallback_" + Date.now();
+    let selectedIds = new Set();
+    let purchaseIds = new Set();
 
-    window[callbackName] = function(data) {
-      items = normalizeItems(data);
-      render();
-      setStatus("読み込み完了");
+    let modalMode = "add";
+    let editingItemId = null;
+    let modalIcon = "共";
 
-      delete window[callbackName];
-      script.remove();
-    };
+    let previousItems = null;
+    let isRefreshing = false;
+    let itemsScrollInitialized = false;
 
-    const script = document.createElement("script");
-    script.src = WEB_APP_URL + "?callback=" + callbackName;
+    /* =========================================================
+      2. 共通ユーティリティ
+    ========================================================= */
+    function setStatus(message) {
+      document.getElementById("status").textContent = message;
+    }
 
-    script.onerror = function() {
-      setStatus("読み込み失敗。Apps Scriptのデプロイ設定を確認してください。");
-      delete window[callbackName];
-      script.remove();
-    };
+    function createId() {
+      return Date.now().toString() + "-" + Math.random().toString(36).slice(2);
+    }
 
-    document.body.appendChild(script);
-  }
+    function cloneItems(sourceItems) {
+      return JSON.parse(JSON.stringify(sourceItems));
+    }
 
-  function saveItemsSoon() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveItems, 500);
-  }
+    function rememberPreviousItems() {
+      previousItems = cloneItems(items);
+      updateUndoButton();
+    }
 
-  async function saveItems() {
-    setStatus("保存中...");
+    function clearPreviousItems() {
+      previousItems = null;
+      updateUndoButton();
+    }
 
-    try {
-      await fetch(WEB_APP_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-          "Content-Type": "text/plain"
-        },
-        body: JSON.stringify({
-          action: "saveAll",
-          items: items
-        })
+    function updateUndoButton() {
+      const button = document.getElementById("undoButton");
+      if (!button) return;
+      button.disabled = !previousItems;
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    function getIconClass(icon) {
+      if (icon === "か") return "icon-ka";
+      if (icon === "み") return "icon-mi";
+      if (icon === "共") return "icon-kyo";
+      return "icon-kyo";
+    }
+
+    function normalizeItems(data) {
+      return data.map(item => ({
+        id: item.id || createId(),
+        name: item.name || "",
+        hasSpare: item.hasSpare === true || item.hasSpare === "TRUE",
+        note: item.note || "",
+        icon: item.icon || "共"
+      }));
+    }
+
+    /* =========================================================
+      3. データ読み込み・保存
+    ========================================================= */
+    function loadItems(options = {}) {
+      const fromPull = options.fromPull === true;
+
+      if (fromPull) {
+        isRefreshing = true;
+        updateRefreshIndicator();
+        setStatus("更新中...");
+      } else {
+        setStatus("読み込み中...");
+      }
+
+      const callbackName = "loadItemsCallback_" + Date.now();
+
+      window[callbackName] = function(data) {
+        items = normalizeItems(data);
+        selectedIds.clear();
+        purchaseIds.clear();
+        clearPreviousItems();
+        render();
+        setStatus(fromPull ? "更新しました" : "読み込み完了");
+
+        if (fromPull) {
+          finishPullRefresh();
+        }
+
+        delete window[callbackName];
+        script.remove();
+      };
+
+      const script = document.createElement("script");
+      script.src = WEB_APP_URL + "?callback=" + callbackName;
+
+      script.onerror = function() {
+        setStatus("読み込み失敗。Apps Scriptのデプロイ設定を確認してください。");
+        if (fromPull) {
+          finishPullRefresh();
+        }
+        delete window[callbackName];
+        script.remove();
+      };
+
+      document.body.appendChild(script);
+    }
+
+    function saveItemsSoon() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveItems, 500);
+    }
+
+    async function saveItems() {
+      setStatus("保存中...");
+
+      try {
+        await fetch(WEB_APP_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: {
+            "Content-Type": "text/plain"
+          },
+          body: JSON.stringify({
+            action: "saveAll",
+            items: items
+          })
+        });
+
+        setStatus("保存しました");
+      } catch (error) {
+        console.error(error);
+        setStatus("保存失敗");
+      }
+    }
+
+    /* =========================================================
+      4. 描画処理
+    ========================================================= */
+    function render() {
+      updateAppModeClasses();
+      updateUndoButton();
+
+      const container = document.getElementById("items");
+      const previousScrollTop = container.scrollTop;
+      const shouldInitializeScroll = !itemsScrollInitialized;
+
+      container.innerHTML = "";
+      container.appendChild(createPullRefreshElement());
+
+      const displayItems = getDisplayItems();
+
+      if (shoppingMode && displayItems.length === 0) {
+        renderEmptyShoppingMessage(container);
+        restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll);
+        return;
+      }
+
+      displayItems.forEach(item => {
+        container.appendChild(createItemRow(item));
       });
 
-      setStatus("保存しました");
-    } catch (error) {
-      console.error(error);
-      setStatus("保存失敗");
+      restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll);
     }
-  }
 
-  function getIconClass(icon) {
-    if (icon === "か") return "icon-ka";
-    if (icon === "み") return "icon-mi";
-    if (icon === "共") return "icon-kyo";
-    return "icon-ka";
-  }
+    function updateAppModeClasses() {
+      const app = document.getElementById("app");
+      app.classList.toggle("edit-mode", editMode);
+      app.classList.toggle("shopping-mode", shoppingMode);
 
-  function render() {
-    const container = document.getElementById("items");
-    container.innerHTML = "";
+      const editButton = document.querySelector(".edit-button");
+      const shoppingButton = document.querySelector(".shopping-button");
 
-    items.forEach((item, index) => {
-      const div = document.createElement("div");
-      div.className = "item " + (item.hasSpare ? "spare-yes" : "spare-no");
+      editButton.classList.toggle("active", editMode);
+      shoppingButton.classList.toggle("active", shoppingMode);
 
-      div.innerHTML = `
-        <div class="icon-wrap">
-          <button
-            class="icon-button ${getIconClass(item.icon)}"
-            onclick="toggleIconMenu(${index})"
-          >
-            ${item.icon}
-          </button>
+      editButton.disabled = shoppingMode;
+      shoppingButton.disabled = editMode;
+    }
 
-          <div class="menu ${openMenuIndex === index ? "" : "hidden"}">
-            <button onclick="selectIcon(${index}, 'か')">かずまさ</button>
-            <button onclick="selectIcon(${index}, 'み')">みゆう</button>
-            <button onclick="selectIcon(${index}, '共')">共同</button>
-          </div>
+    function createPullRefreshElement() {
+      const refresh = document.createElement("div");
+      refresh.className = "pull-refresh";
+      refresh.innerHTML = `<span class="refresh-icon ${isRefreshing ? "spinning" : ""}" id="refreshIcon"></span>`;
+      return refresh;
+    }
+
+    function restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll) {
+      requestAnimationFrame(() => {
+        if (shouldInitializeScroll) {
+          container.scrollTop = 0;
+          itemsScrollInitialized = true;
+          return;
+        }
+
+        if (isRefreshing) return;
+
+        container.scrollTop = Math.max(previousScrollTop, 0);
+      });
+    }
+
+    function updateRefreshIndicator() {
+      const icon = document.getElementById("refreshIcon");
+      if (!icon) return;
+
+      icon.classList.toggle("spinning", isRefreshing);
+    }
+
+    function setupPullToRefresh() {
+      const container = document.getElementById("items");
+
+      container.addEventListener("scroll", () => {
+        if (isRefreshing) return;
+        if (container.scrollTop <= 4) {
+          loadItems({ fromPull: true });
+        }
+      });
+    }
+
+    function finishPullRefresh() {
+      const container = document.getElementById("items");
+
+      requestAnimationFrame(() => {
+        container.scrollTo({
+          top: 0,
+          behavior: "smooth"
+        });
+
+        setTimeout(() => {
+          isRefreshing = false;
+          updateRefreshIndicator();
+        }, 350);
+      });
+    }
+
+    function getDisplayItems() {
+      return shoppingMode ? items.filter(item => !item.hasSpare) : items;
+    }
+
+    function renderEmptyShoppingMessage(container) {
+      const empty = document.createElement("div");
+      empty.className = "empty-list-message";
+      empty.textContent = "買いもの対象はありません";
+      container.appendChild(empty);
+    }
+
+    function createItemRow(item) {
+      const index = items.findIndex(baseItem => baseItem.id === item.id);
+      const row = document.createElement("div");
+      row.className = "row";
+
+      row.innerHTML = `
+        ${createSideCheckHtml(item)}
+
+        <div class="item ${item.hasSpare ? "spare-yes" : "spare-no"}">
+          ${createIconHtml(item)}
+          ${createItemContentHtml(item, index)}
         </div>
-
-        <input
-          class="name"
-          type="text"
-          placeholder="日用品"
-          value="${escapeHtml(item.name)}"
-          oninput="updateName(${index}, this.value)"
-        >
-
-        <input
-          class="toggle"
-          type="checkbox"
-          ${item.hasSpare ? "checked" : ""}
-          onchange="toggleSpare(${index})"
-        >
-
-        <input
-          class="note"
-          type="text"
-          placeholder="備考"
-          value="${escapeHtml(item.note)}"
-          oninput="updateNote(${index}, this.value)"
-        >
       `;
 
-      container.appendChild(div);
-    });
-  }
+      return row;
+    }
 
-  function escapeHtml(text) {
-    return String(text)
-      .replaceAll("&", "&amp;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;");
-  }
+    function createSideCheckHtml(item) {
+      if (editMode) {
+        return `
+          <div class="side-check-wrap">
+            <input
+              class="side-check"
+              type="checkbox"
+              ${selectedIds.has(item.id) ? "checked" : ""}
+              onchange="toggleDeleteCheck('${item.id}', this.checked)"
+            >
+          </div>
+        `;
+      }
 
-  function addItem() {
-    items.push({
-      id: createId(),
-      name: "",
-      hasSpare: false,
-      note: "",
-      icon: "か"
-    });
+      if (shoppingMode) {
+        return `
+          <div class="side-check-wrap">
+            <input
+              class="side-check"
+              type="checkbox"
+              ${purchaseIds.has(item.id) ? "checked" : ""}
+              onchange="togglePurchaseCheck('${item.id}', this.checked)"
+            >
+          </div>
+        `;
+      }
 
-    saveItems();
-    render();
-  }
+      return `<div class="side-check-wrap"></div>`;
+    }
 
-  function updateName(index, value) {
-    items[index].name = value;
-    saveItemsSoon();
-  }
+    function createIconHtml(item) {
+      return `
+        <div class="icon-wrap">
+          <button class="icon-button ${getIconClass(item.icon)}" disabled>
+            ${item.icon}
+          </button>
+        </div>
+      `;
+    }
 
-  function updateNote(index, value) {
-    items[index].note = value;
-    saveItemsSoon();
-  }
+    function createItemContentHtml(item, index) {
+      const hasNote = item.note.trim().length > 0;
 
-  function toggleSpare(index) {
-    items[index].hasSpare = !items[index].hasSpare;
-    saveItems();
-    render();
-  }
+      return `
+        <div class="text-area ${hasNote ? "" : "no-note"}">
+          <div class="name-text ${item.name ? "" : "empty-text"}">
+            ${escapeHtml(item.name || "名称未入力")}
+          </div>
+          ${hasNote ? `<div class="note-text">${escapeHtml(item.note)}</div>` : ""}
+        </div>
 
-  function toggleIconMenu(index) {
-    openMenuIndex = openMenuIndex === index ? null : index;
-    render();
-  }
+        ${editMode ? `
+          <button class="item-edit-button" onclick="openEditModal('${item.id}')" aria-label="項目を編集">✎</button>
+        ` : ""}
 
-  function selectIcon(index, icon) {
-    items[index].icon = icon;
-    openMenuIndex = null;
-    saveItems();
-    render();
-  }
+        ${createToggleHtml(item, index)}
+      `;
+    }
 
-  loadItems();
+    function createToggleHtml(item, index) {
+      return `
+        <div class="toggle-wrap">
+          <input
+            id="toggle-${item.id}"
+            class="switch-input"
+            type="checkbox"
+            ${item.hasSpare ? "checked" : ""}
+            ${(editMode || shoppingMode) ? "disabled" : ""}
+            onchange="toggleSpare(${index})"
+          >
+          <label class="switch-label" for="toggle-${item.id}"></label>
+        </div>
+      `;
+    }
 
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js");
-  }
-</script>
+    /* =========================================================
+      5. 通常モード操作
+    ========================================================= */
+    function toggleSpare(index) {
+      if (editMode || shoppingMode) return;
 
+      rememberPreviousItems();
+      items[index].hasSpare = !items[index].hasSpare;
+      saveItems();
+      render();
+    }
+
+    /* =========================================================
+      6. 編集モード
+    ========================================================= */
+    function toggleEditMode() {
+      if (shoppingMode) return;
+
+      editMode = !editMode;
+      selectedIds.clear();
+      render();
+      setStatus(editMode ? "編集モード" : "通常モード");
+    }
+
+    function toggleDeleteCheck(id, checked) {
+      if (checked) {
+        selectedIds.add(id);
+      } else {
+        selectedIds.delete(id);
+      }
+    }
+
+    /* =========================================================
+      7. 買いものモード
+    ========================================================= */
+    function toggleShoppingMode() {
+      if (editMode) return;
+
+      shoppingMode = !shoppingMode;
+      purchaseIds.clear();
+      render();
+      setStatus(shoppingMode ? "買いものモード" : "通常モード");
+    }
+
+    function togglePurchaseCheck(id, checked) {
+      if (checked) {
+        purchaseIds.add(id);
+      } else {
+        purchaseIds.delete(id);
+      }
+    }
+
+    /* =========================================================
+      8. 追加 / 編集モーダル
+    ========================================================= */
+    function openAddModal() {
+      modalMode = "add";
+      editingItemId = null;
+      modalIcon = "共";
+
+      document.getElementById("itemModalTitle").textContent = "日用品を追加";
+      document.getElementById("modalName").value = "";
+      document.getElementById("modalNote").value = "";
+      document.getElementById("modalConfirm").disabled = true;
+
+      updateModalOwnerButtons();
+      document.getElementById("itemModal").classList.add("show");
+
+      setTimeout(() => {
+        document.getElementById("modalName").focus();
+      }, 100);
+    }
+
+    function openEditModal(id) {
+      const item = items.find(item => item.id === id);
+      if (!item) return;
+
+      modalMode = "edit";
+      editingItemId = id;
+      modalIcon = item.icon || "共";
+
+      document.getElementById("itemModalTitle").textContent = "日用品を編集";
+      document.getElementById("modalName").value = item.name || "";
+      document.getElementById("modalNote").value = item.note || "";
+      document.getElementById("modalConfirm").disabled = !(item.name || "").trim();
+
+      updateModalOwnerButtons();
+      document.getElementById("itemModal").classList.add("show");
+
+      setTimeout(() => {
+        document.getElementById("modalName").focus();
+      }, 100);
+    }
+
+    function closeItemModal() {
+      document.getElementById("itemModal").classList.remove("show");
+    }
+
+    function setModalIcon(icon) {
+      modalIcon = icon;
+      updateModalOwnerButtons();
+    }
+
+    function updateModalOwnerButtons() {
+      document.getElementById("modalOwnerKyo").classList.toggle("selected", modalIcon === "共");
+      document.getElementById("modalOwnerKa").classList.toggle("selected", modalIcon === "か");
+      document.getElementById("modalOwnerMi").classList.toggle("selected", modalIcon === "み");
+    }
+
+    function validateItemModal() {
+      const name = document.getElementById("modalName").value.trim();
+      document.getElementById("modalConfirm").disabled = name.length === 0;
+    }
+
+    function confirmItemModal() {
+      const name = document.getElementById("modalName").value.trim();
+      const note = document.getElementById("modalNote").value.trim();
+
+      if (!name) return;
+
+      rememberPreviousItems();
+
+      if (modalMode === "add") {
+        addItemFromModal(name, note);
+      }
+
+      if (modalMode === "edit") {
+        updateItemFromModal(name, note);
+      }
+
+      closeItemModal();
+      saveItems();
+      render();
+    }
+
+    function addItemFromModal(name, note) {
+      items.push({
+        id: createId(),
+        name: name,
+        hasSpare: false,
+        note: note,
+        icon: modalIcon
+      });
+    }
+
+    function updateItemFromModal(name, note) {
+      items = items.map(item => {
+        if (item.id === editingItemId) {
+          return {
+            ...item,
+            name: name,
+            note: note,
+            icon: modalIcon
+          };
+        }
+
+        return item;
+      });
+    }
+
+    /* =========================================================
+      9. 削除確認モーダル
+    ========================================================= */
+    function openDeleteConfirm() {
+      clearTimeout(saveTimer);
+
+      if (selectedIds.size === 0) {
+        setStatus("削除する項目を選んでください");
+        return;
+      }
+
+      document.getElementById("deleteConfirmMessage").textContent =
+        selectedIds.size + "点を削除しますか？";
+
+      document.getElementById("deleteConfirmModal").classList.add("show");
+    }
+
+    function closeDeleteConfirm() {
+      document.getElementById("deleteConfirmModal").classList.remove("show");
+    }
+
+    function confirmDeleteItems() {
+      rememberPreviousItems();
+      items = items.filter(item => !selectedIds.has(item.id));
+      selectedIds.clear();
+
+      closeDeleteConfirm();
+      saveItems();
+      render();
+    }
+
+    /* =========================================================
+      10. 購入確認モーダル
+    ========================================================= */
+    function openPurchaseConfirm() {
+      if (purchaseIds.size === 0) {
+        setStatus("購入する項目を選んでください");
+        return;
+      }
+
+      document.getElementById("purchaseConfirmModal").classList.add("show");
+    }
+
+    function closePurchaseConfirm() {
+      document.getElementById("purchaseConfirmModal").classList.remove("show");
+    }
+
+    function confirmPurchaseItems() {
+      rememberPreviousItems();
+      items = items.map(item => {
+        if (purchaseIds.has(item.id)) {
+          return {
+            ...item,
+            hasSpare: true
+          };
+        }
+
+        return item;
+      });
+
+      purchaseIds.clear();
+      shoppingMode = false;
+
+      closePurchaseConfirm();
+      saveItems();
+      render();
+      setStatus("購入済みにしました");
+    }
+
+    /* =========================================================
+      11. ひとつ前に戻る
+    ========================================================= */
+    function openUndoConfirm() {
+      if (!previousItems) return;
+      document.getElementById("undoConfirmModal").classList.add("show");
+    }
+
+    function closeUndoConfirm() {
+      document.getElementById("undoConfirmModal").classList.remove("show");
+    }
+
+    function confirmUndo() {
+      if (!previousItems) return;
+
+      items = cloneItems(previousItems);
+      previousItems = null;
+      selectedIds.clear();
+      purchaseIds.clear();
+      editMode = false;
+      shoppingMode = false;
+
+      closeUndoConfirm();
+      saveItems();
+      render();
+      setStatus("ひとつ前のリストに戻しました");
+    }
+
+    /* =========================================================
+      12. 初期実行
+    ========================================================= */
+    setupPullToRefresh();
+    loadItems();
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js");
+    }
+  </script>
 </body>
 </html>
