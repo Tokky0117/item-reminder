@@ -25,6 +25,7 @@
       --edit-header-color: #fff0d8;
       --shopping-bg-color: #eef7ff;
       --shopping-header-color: #e1f0ff;
+      --icon-stroke-width: 3;
     }
 
     body {
@@ -103,7 +104,7 @@
     .header {
       flex-shrink: 0;
       background: var(--bg-color);
-      padding: 14px 12px 12px;
+      padding: 14px 12px 9px;
       position: relative;
       transition: background 0.18s ease;
     }
@@ -127,6 +128,30 @@
       text-align: center;
       font-size: 24px;
       margin: 0;
+    }
+
+    .mode-label {
+      display: none;
+      text-align: center;
+      margin-top: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 0.04em;
+      color: #666;
+      min-height: 16px;
+    }
+
+    .app.edit-mode .mode-label,
+    .app.shopping-mode .mode-label {
+      display: block;
+    }
+
+    .app.edit-mode .mode-label {
+      color: #9a6400;
+    }
+
+    .app.shopping-mode .mode-label {
+      color: #0067b8;
     }
 
     .shopping-button,
@@ -277,10 +302,55 @@
       display: flex;
     }
 
-    .side-check {
+    .side-check-label {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .side-check-input {
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+      pointer-events: none;
+    }
+
+    .side-check-visual {
       width: 24px;
       height: 24px;
-      accent-color: var(--danger-color);
+      border-radius: 50%;
+      border: 2px solid #c9c9c9;
+      background: rgba(255,255,255,0.9);
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
+    }
+
+    .side-check-visual::after {
+      content: "";
+      width: 9px;
+      height: 5px;
+      border-left: 2.4px solid white;
+      border-bottom: 2.4px solid white;
+      transform: rotate(-45deg) scale(0);
+      margin-top: -2px;
+      transition: transform 0.12s ease;
+    }
+
+    .side-check-input:checked + .side-check-visual {
+      background: var(--danger-color);
+      border-color: var(--danger-color);
+      transform: scale(1.03);
+    }
+
+    .side-check-input:checked + .side-check-visual::after {
+      transform: rotate(-45deg) scale(1);
     }
 
     /* =========================================================
@@ -402,7 +472,7 @@
       width: 22px;
       height: 22px;
       stroke: currentColor;
-      stroke-width: 2.2;
+      stroke-width: 2.3;
       stroke-linecap: round;
       stroke-linejoin: round;
       fill: none;
@@ -517,10 +587,10 @@
     }
 
     .undo-icon {
-      width: 34px;
-      height: 34px;
+      width: 32px;
+      height: 32px;
       stroke: currentColor;
-      stroke-width: 4;
+      stroke-width: 3.4;
       stroke-linecap: round;
       stroke-linejoin: round;
       fill: none;
@@ -715,6 +785,7 @@
         <h1>日用品リスト</h1>
         <button class="edit-button" onclick="toggleEditMode()" aria-label="編集">編集</button>
       </div>
+      <div class="mode-label" id="modeLabel"></div>
     </div>
 
     <div id="items"></div>
@@ -730,7 +801,7 @@
           <path d="M9 18 H23 C29 18 33 22 33 27 C33 32 29 36 23 36 H17"></path>
         </svg>
       </button>
-      <button class="add-button" id="addButton" onclick="openAddModal()" aria-label="日用品を追加">＋日用品を追加</button>
+      <button class="add-button" id="addButton" onclick="openAddModal()" aria-label="日用品を追加">＋ 追加</button>
     </div>
   </div>
 
@@ -1091,6 +1162,7 @@
       const editButton = document.querySelector(".edit-button");
       const shoppingButton = document.querySelector(".shopping-button");
       const addButton = document.getElementById("addButton");
+      const modeLabel = document.getElementById("modeLabel");
 
       editButton.classList.toggle("active", editMode);
       shoppingButton.classList.toggle("active", shoppingMode);
@@ -1100,6 +1172,16 @@
 
       if (addButton) {
         addButton.disabled = editMode || shoppingMode;
+      }
+
+      if (modeLabel) {
+        if (editMode) {
+          modeLabel.textContent = "編集中";
+        } else if (shoppingMode) {
+          modeLabel.textContent = "買いものモード";
+        } else {
+          modeLabel.textContent = "";
+        }
       }
     }
 
@@ -1290,12 +1372,15 @@
       if (editMode) {
         return `
           <div class="side-check-wrap">
-            <input
-              class="side-check"
-              type="checkbox"
-              ${selectedIds.has(item.id) ? "checked" : ""}
-              onchange="toggleDeleteCheck('${item.id}', this.checked)"
-            >
+            <label class="side-check-label">
+              <input
+                class="side-check-input"
+                type="checkbox"
+                ${selectedIds.has(item.id) ? "checked" : ""}
+                onchange="toggleDeleteCheck('${item.id}', this.checked)"
+              >
+              <span class="side-check-visual"></span>
+            </label>
           </div>
         `;
       }
