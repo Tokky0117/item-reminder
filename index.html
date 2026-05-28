@@ -130,8 +130,12 @@
       font-size: 12px;
       font-weight: bold;
       letter-spacing: 0.04em;
-      color: #666;
       min-height: 16px;
+    }
+
+    .app.edit-mode .mode-label {
+      display: block;
+      color: #0067b8;
     }
 
     .app.shopping-mode .mode-label {
@@ -524,7 +528,8 @@
       z-index: 50;
     }
 
-    .undo-button {
+    .undo-button,
+    .home-button {
       width: 64px;
       height: 54px;
       border: none;
@@ -538,11 +543,16 @@
       padding: 0;
     }
 
-    .undo-icon {
+    .home-button {
+      display: none;
+    }
+
+    .undo-icon,
+    .home-icon {
       width: 32px;
       height: 32px;
       stroke: currentColor;
-      stroke-width: 3.4;
+      stroke-width: 3.2;
       stroke-linecap: round;
       stroke-linejoin: round;
       fill: none;
@@ -568,8 +578,7 @@
 
     .purchase-complete-button {
       display: none;
-      margin-left: auto;
-      width: 112px;
+      flex: 1;
       height: 54px;
       border: none;
       border-radius: 16px;
@@ -577,12 +586,12 @@
       color: white;
       font-size: 16px;
       font-weight: bold;
-      flex-shrink: 0;
       box-shadow: 0 3px 10px rgba(0,0,0,0.16);
     }
 
-    .app.edit-mode .undo-button {
-      display: none;
+    .app.edit-mode .home-button,
+    .app.shopping-mode .home-button {
+      display: flex;
     }
 
     .app.edit-mode .edit-complete-button {
@@ -774,6 +783,14 @@
         </svg>
       </button>
 
+      <button class="home-button" id="homeButton" onclick="openHomeCancelConfirm()" aria-label="ホーム">
+        <svg class="home-icon" viewBox="0 0 40 40" aria-hidden="true">
+          <path d="M7 19L20 8L33 19"></path>
+          <path d="M11 18V33H29V18"></path>
+          <path d="M17 33V23H23V33"></path>
+        </svg>
+      </button>
+
       <button class="edit-complete-button" id="editCompleteButton" onclick="completeEditMode()" aria-label="編集完了">編集完了</button>
       <button class="purchase-complete-button" id="purchaseCompleteButton" onclick="openPurchaseConfirm()" aria-label="購入確定">購入確定</button>
     </div>
@@ -842,15 +859,27 @@
     </div>
   </div>
 
-  <div class="modal-backdrop" id="saveFailureModal">
+  <div class="modal-backdrop" id="homeCancelConfirmModal">
     <div class="modal">
-      <h2>保存失敗</h2>
+      <h2>確認</h2>
+      <div class="confirm-message">変更をキャンセルして通常モードに戻りますか？</div>
+      <div class="modal-actions">
+        <button class="cancel-button" onclick="closeHomeCancelConfirm()">いいえ</button>
+        <button class="confirm-button" onclick="confirmHomeCancel()">はい</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="updateRetryModal">
+    <div class="modal">
+      <h2>更新失敗</h2>
       <div class="confirm-message">
-        保存に失敗しました。<br>
-        最新のリストを再読み込みします。
+        サーバーへの更新に失敗しました。<br>
+        再度更新しますか？
       </div>
       <div class="modal-actions">
-        <button class="confirm-button" onclick="confirmSaveFailureReload()">OK</button>
+        <button class="cancel-button" onclick="closeUpdateRetryModal()">いいえ</button>
+        <button class="confirm-button" onclick="retryPendingUpdate()">はい</button>
       </div>
     </div>
   </div>
@@ -888,6 +917,9 @@
     let modalIcon = "共";
 
     let previousItems = null;
+    let modeStartItems = null;
+    let pendingUpdateAction = null;
+
     let isRefreshing = false;
     let itemsScrollInitialized = false;
     let isInitialLoading = true;
@@ -896,7 +928,6 @@
     let pullDistance = 0;
     let isPulling = false;
 
-    let isSaveFailureModalOpen = false;
     let isLoadFailureModalOpen = false;
 
     function showToast(message, duration = 2200) {
@@ -904,7 +935,6 @@
       if (!toast) return;
 
       clearTimeout(toastTimer);
-
       toast.textContent = message;
       toast.classList.add("show");
 
@@ -999,19 +1029,19 @@
       shoppingModeItemIds.clear();
       editMode = false;
       shoppingMode = false;
+      modeStartItems = null;
       clearPreviousItems();
       resetPullRefreshVisual();
     }
 
     function isBlockingModalOpen() {
-      return isSaveFailureModalOpen || isLoadFailureModalOpen;
+      return isLoadFailureModalOpen;
     }
 
     function loadItems(options = {}) {
       const fromPull = options.fromPull === true;
-      const afterSaveFailure = options.afterSaveFailure === true;
 
-      if (fromPull && shoppingMode) {
+      if (fromPull && (shoppingMode || editMode)) {
         resetPullRefreshVisual();
         return;
       }
@@ -1033,21 +1063,9 @@
           shoppingModeItemIds.clear();
         }
 
-        if (afterSaveFailure) {
-          editMode = false;
-          shoppingMode = false;
-          selectedIds.clear();
-          shoppingModeItemIds.clear();
-          resetPullRefreshVisual();
-        }
-
         clearPreviousItems();
         render();
         hideStartupScreen();
-
-        if (afterSaveFailure) {
-          showToast("最新のリストに戻しました");
-        }
 
         if (fromPull) {
           finishPullRefresh();
@@ -1067,11 +1085,7 @@
           finishPullRefresh();
         }
 
-        if (afterSaveFailure) {
-          openLoadFailureModal("最新のリストを再読み込みできませんでした。\n通信状況を確認してください。");
-        } else {
-          openLoadFailureModal("リストを読み込めませんでした。\n通信状況を確認してください。");
-        }
+        openLoadFailureModal("リストを読み込めませんでした。\n通信状況を確認してください。");
 
         delete window[callbackName];
         script.remove();
@@ -1080,27 +1094,48 @@
       document.body.appendChild(script);
     }
 
-    function saveItemsSoon() {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(saveItems, 500);
+    async function saveItemsToServer() {
+      await fetch(WEB_APP_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "text/plain"
+        },
+        body: JSON.stringify({
+          action: "saveAll",
+          items: items
+        })
+      });
     }
 
-    async function saveItems() {
+    async function saveImmediateChange() {
       try {
-        await fetch(WEB_APP_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: {
-            "Content-Type": "text/plain"
-          },
-          body: JSON.stringify({
-            action: "saveAll",
-            items: items
-          })
-        });
+        await saveItemsToServer();
       } catch (error) {
         console.error(error);
-        openSaveFailureModal();
+        pendingUpdateAction = saveImmediateChange;
+        openUpdateRetryModal();
+      }
+    }
+
+    async function commitModeAndExit(successMessage) {
+      try {
+        await saveItemsToServer();
+
+        editMode = false;
+        shoppingMode = false;
+        selectedIds.clear();
+        shoppingModeItemIds.clear();
+        modeStartItems = null;
+        clearPreviousItems();
+        resetPullRefreshVisual();
+        render();
+
+        showToast(successMessage);
+      } catch (error) {
+        console.error(error);
+        pendingUpdateAction = () => commitModeAndExit(successMessage);
+        openUpdateRetryModal();
       }
     }
 
@@ -1149,11 +1184,13 @@
       shoppingButton.disabled = editMode;
 
       if (appTitle) {
-        appTitle.textContent = editMode ? "編集モード" : "日用品リスト";
+        appTitle.textContent = "日用品リスト";
       }
 
       if (modeLabel) {
-        if (shoppingMode) {
+        if (editMode) {
+          modeLabel.textContent = "編集モード";
+        } else if (shoppingMode) {
           modeLabel.textContent = "買いものモード";
         } else {
           modeLabel.textContent = "";
@@ -1432,24 +1469,28 @@
 
       rememberPreviousItems();
       items[index].hasSpare = !items[index].hasSpare;
-      saveItems();
-      render();
+
+      if (shoppingMode) {
+        render();
+      } else {
+        saveImmediateChange();
+        render();
+      }
     }
 
     function toggleEditMode() {
       if (shoppingMode) return;
 
-      editMode = !editMode;
+      editMode = true;
       selectedIds.clear();
+      modeStartItems = cloneItems(items);
+      clearPreviousItems();
       resetPullRefreshVisual();
       render();
     }
 
     function completeEditMode() {
-      editMode = false;
-      selectedIds.clear();
-      resetPullRefreshVisual();
-      render();
+      commitModeAndExit("編集内容を保存しました");
     }
 
     function toggleDeleteCheck(id, checked) {
@@ -1463,19 +1504,17 @@
     function toggleShoppingMode() {
       if (editMode) return;
 
-      shoppingMode = !shoppingMode;
+      shoppingMode = true;
       selectedIds.clear();
+      modeStartItems = cloneItems(items);
+      clearPreviousItems();
       resetPullRefreshVisual();
 
-      if (shoppingMode) {
-        shoppingModeItemIds = new Set(
-          items
-            .filter(item => !item.hasSpare)
-            .map(item => item.id)
-        );
-      } else {
-        shoppingModeItemIds.clear();
-      }
+      shoppingModeItemIds = new Set(
+        items
+          .filter(item => !item.hasSpare)
+          .map(item => item.id)
+      );
 
       render();
     }
@@ -1558,7 +1597,6 @@
       }
 
       closeItemModal();
-      saveItems();
       render();
     }
 
@@ -1611,7 +1649,6 @@
       selectedIds.clear();
 
       closeDeleteConfirm();
-      saveItems();
       render();
     }
 
@@ -1635,7 +1672,10 @@
         shoppingModeItemIds.clear();
       }
 
-      saveItems();
+      if (!editMode && !shoppingMode) {
+        saveImmediateChange();
+      }
+
       render();
     }
 
@@ -1650,36 +1690,53 @@
 
     function confirmPurchaseComplete() {
       closePurchaseConfirm();
+      commitModeAndExit("購入内容を保存しました");
+    }
 
+    function openHomeCancelConfirm() {
+      if (!editMode && !shoppingMode) return;
+      document.getElementById("homeCancelConfirmModal").classList.add("show");
+    }
+
+    function closeHomeCancelConfirm() {
+      document.getElementById("homeCancelConfirmModal").classList.remove("show");
+    }
+
+    function confirmHomeCancel() {
+      closeHomeCancelConfirm();
+
+      if (modeStartItems) {
+        items = cloneItems(modeStartItems);
+      }
+
+      editMode = false;
       shoppingMode = false;
-      shoppingModeItemIds.clear();
       selectedIds.clear();
+      shoppingModeItemIds.clear();
+      modeStartItems = null;
       clearPreviousItems();
       resetPullRefreshVisual();
-
-      saveItems();
       render();
     }
 
-    function openSaveFailureModal() {
-      if (isSaveFailureModalOpen) return;
-
-      isSaveFailureModalOpen = true;
+    function openUpdateRetryModal() {
       hideToast();
       resetPullRefreshVisual();
-      document.getElementById("saveFailureModal").classList.add("show");
+      document.getElementById("updateRetryModal").classList.add("show");
     }
 
-    function closeSaveFailureModal() {
-      isSaveFailureModalOpen = false;
-      document.getElementById("saveFailureModal").classList.remove("show");
+    function closeUpdateRetryModal() {
+      document.getElementById("updateRetryModal").classList.remove("show");
     }
 
-    function confirmSaveFailureReload() {
-      closeSaveFailureModal();
-      resetModesAndSelections();
-      render();
-      loadItems({ afterSaveFailure: true });
+    function retryPendingUpdate() {
+      closeUpdateRetryModal();
+
+      if (typeof pendingUpdateAction === "function") {
+        const action = pendingUpdateAction;
+        pendingUpdateAction = null;
+        action();
+      }
     }
 
     function openLoadFailureModal(message) {
