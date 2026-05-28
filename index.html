@@ -1,114 +1,225 @@
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>日用品リマインダー</title>
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-  >
-  <title>日用品リスト</title>
 
   <link rel="manifest" href="manifest.json">
 
-@@ -14,6 +17,7 @@
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f5f5f5;
       margin: 0;
       height: 100vh;
       overflow: hidden;
-      touch-action: manipulation;
     }
 
     .app {
-@@ -49,12 +53,13 @@
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      flex-shrink: 0;
+      background: #f5f5f5;
+      padding: 16px 16px 8px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      margin: 0 0 8px;
+    }
+
+    #status {
+      text-align: center;
+      font-size: 13px;
+      color: #666;
+      min-height: 18px;
+    }
+
+    #items {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
       gap: 10px;
       padding: 12px 12px 96px;
       box-sizing: border-box;
-      -webkit-overflow-scrolling: touch;
     }
 
     .item {
       background: white;
       padding: 10px;
       border-radius: 12px;
-      border-radius: 8px;
       display: flex;
       gap: 8px;
       align-items: center;
-@@ -66,6 +71,7 @@
+    }
+
+    input[type="text"] {
+      padding: 10px;
+      border-radius: 8px;
       border: 1px solid #ccc;
       font-size: 16px;
       min-width: 0;
-      box-sizing: border-box;
     }
 
     .name {
-@@ -139,7 +145,7 @@
+      flex: 2;
+    }
+
+    .note {
+      flex: 1;
+    }
+
+    .toggle {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+
+    .spare-yes {
+      background: #d4ffd4;
+    }
+
+    .spare-no {
+      background: #ffd4d4;
+    }
+
+    .icon-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .icon-button {
+      width: 42px;
+      height: 42px;
+      border: none;
+      border-radius: 50%;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .icon-ka {
+      background: #b86b4b;
+      color: white;
+    }
+
+    .icon-mi {
+      background: #c8b6ff;
+      color: #333;
+    }
+
+    .icon-kyo {
+      background: #c99a2e;
+      color: white;
+    }
+
+    .menu {
+      position: absolute;
+      top: 48px;
+      left: 0;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      overflow: hidden;
+      z-index: 10;
+      min-width: 120px;
+    }
+
+    .menu button {
+      display: block;
+      width: 100%;
+      padding: 10px;
       border: none;
       background: white;
       text-align: left;
       font-size: 14px;
-      font-size: 16px;
     }
 
     .hidden {
-@@ -166,9 +172,9 @@
+      display: none;
+    }
+
+    .footer {
+      flex-shrink: 0;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+      background: rgba(245, 245, 245, 0.96);
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
+      box-sizing: border-box;
+    }
+
+    .reload-button {
+      width: 64px;
       height: 54px;
       border: none;
       border-radius: 16px;
       background: #666;
       color: white;
       font-size: 28px;
-      background: #f5f5f5;
-      color: #007aff;
-      font-size: 30px;
       font-weight: bold;
       flex-shrink: 0;
     }
-@@ -180,7 +186,7 @@
+
+    .add-button {
+      flex: 1;
+      height: 58px;
+      border: none;
       border-radius: 18px;
       background: #007aff;
       color: white;
       font-size: 34px;
-      font-size: 22px;
       font-weight: bold;
     }
 
-@@ -195,22 +201,27 @@
+    @media (max-width: 480px) {
+      .header {
+        padding: 14px 12px 6px;
+      }
+
+      #items {
+        padding: 10px 10px 94px;
+      }
 
       .item {
         gap: 6px;
-        border-radius: 8px;
       }
 
       .icon-button {
         width: 36px;
         height: 36px;
         font-size: 14px;
-        font-size: 16px;
       }
 
       input[type="text"] {
         padding: 8px;
         font-size: 14px;
-        font-size: 16px;
       }
 
       .note {
         max-width: 100px;
       }
-
-      .add-button {
-        font-size: 20px;
-      }
     }
   </style>
 </head>
-@@ -219,15 +230,15 @@
+
+<body>
 
 <div class="app">
   <div class="header">
     <h1>日用品リマインダー</h1>
-    <h1>日用品リスト</h1>
     <div id="status">読み込み中...</div>
   </div>
 
@@ -117,6 +228,202 @@
   <div class="footer">
     <button class="reload-button" onclick="loadItems()" aria-label="再読み込み">↻</button>
     <button class="add-button" onclick="addItem()" aria-label="追加">＋</button>
-    <button class="add-button" onclick="addItem()" aria-label="日用品を追加">＋日用品を追加</button>
   </div>
 </div>
+
+<script>
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxDuS5ZIUcb6ifMwJ5S86CZrV7YCnMsolM0lKbw7p71CK2mn_lWtT1LRzt9iIGpX04h/exec";
+
+  let items = [];
+  let openMenuIndex = null;
+  let saveTimer = null;
+
+  function setStatus(message) {
+    document.getElementById("status").textContent = message;
+  }
+
+  function createId() {
+    return Date.now().toString() + "-" + Math.random().toString(36).slice(2);
+  }
+
+  function normalizeItems(data) {
+    return data.map(item => ({
+      id: item.id || createId(),
+      name: item.name || "",
+      hasSpare: item.hasSpare === true || item.hasSpare === "TRUE",
+      note: item.note || "",
+      icon: item.icon || "か"
+    }));
+  }
+
+  function loadItems() {
+    setStatus("読み込み中...");
+
+    const callbackName = "loadItemsCallback_" + Date.now();
+
+    window[callbackName] = function(data) {
+      items = normalizeItems(data);
+      render();
+      setStatus("読み込み完了");
+
+      delete window[callbackName];
+      script.remove();
+    };
+
+    const script = document.createElement("script");
+    script.src = WEB_APP_URL + "?callback=" + callbackName;
+
+    script.onerror = function() {
+      setStatus("読み込み失敗。Apps Scriptのデプロイ設定を確認してください。");
+      delete window[callbackName];
+      script.remove();
+    };
+
+    document.body.appendChild(script);
+  }
+
+  function saveItemsSoon() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveItems, 500);
+  }
+
+  async function saveItems() {
+    setStatus("保存中...");
+
+    try {
+      await fetch(WEB_APP_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "text/plain"
+        },
+        body: JSON.stringify({
+          action: "saveAll",
+          items: items
+        })
+      });
+
+      setStatus("保存しました");
+    } catch (error) {
+      console.error(error);
+      setStatus("保存失敗");
+    }
+  }
+
+  function getIconClass(icon) {
+    if (icon === "か") return "icon-ka";
+    if (icon === "み") return "icon-mi";
+    if (icon === "共") return "icon-kyo";
+    return "icon-ka";
+  }
+
+  function render() {
+    const container = document.getElementById("items");
+    container.innerHTML = "";
+
+    items.forEach((item, index) => {
+      const div = document.createElement("div");
+      div.className = "item " + (item.hasSpare ? "spare-yes" : "spare-no");
+
+      div.innerHTML = `
+        <div class="icon-wrap">
+          <button
+            class="icon-button ${getIconClass(item.icon)}"
+            onclick="toggleIconMenu(${index})"
+          >
+            ${item.icon}
+          </button>
+
+          <div class="menu ${openMenuIndex === index ? "" : "hidden"}">
+            <button onclick="selectIcon(${index}, 'か')">かずまさ</button>
+            <button onclick="selectIcon(${index}, 'み')">みゆう</button>
+            <button onclick="selectIcon(${index}, '共')">共同</button>
+          </div>
+        </div>
+
+        <input
+          class="name"
+          type="text"
+          placeholder="日用品"
+          value="${escapeHtml(item.name)}"
+          oninput="updateName(${index}, this.value)"
+        >
+
+        <input
+          class="toggle"
+          type="checkbox"
+          ${item.hasSpare ? "checked" : ""}
+          onchange="toggleSpare(${index})"
+        >
+
+        <input
+          class="note"
+          type="text"
+          placeholder="備考"
+          value="${escapeHtml(item.note)}"
+          oninput="updateNote(${index}, this.value)"
+        >
+      `;
+
+      container.appendChild(div);
+    });
+  }
+
+  function escapeHtml(text) {
+    return String(text)
+      .replaceAll("&", "&amp;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
+  }
+
+  function addItem() {
+    items.push({
+      id: createId(),
+      name: "",
+      hasSpare: false,
+      note: "",
+      icon: "か"
+    });
+
+    saveItems();
+    render();
+  }
+
+  function updateName(index, value) {
+    items[index].name = value;
+    saveItemsSoon();
+  }
+
+  function updateNote(index, value) {
+    items[index].note = value;
+    saveItemsSoon();
+  }
+
+  function toggleSpare(index) {
+    items[index].hasSpare = !items[index].hasSpare;
+    saveItems();
+    render();
+  }
+
+  function toggleIconMenu(index) {
+    openMenuIndex = openMenuIndex === index ? null : index;
+    render();
+  }
+
+  function selectIcon(index, icon) {
+    items[index].icon = icon;
+    openMenuIndex = null;
+    saveItems();
+    render();
+  }
+
+  loadItems();
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js");
+  }
+</script>
+
+</body>
+</html>
