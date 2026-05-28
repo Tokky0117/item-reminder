@@ -202,14 +202,14 @@
     }
 
     .pull-refresh.ready .refresh-icon {
-      transform: scale(1.12);
+      transform: scale(1.1);
     }
 
     .refresh-icon {
-      width: 28px;
-      height: 28px;
-      border: 4px solid var(--primary-color);
-      border-right-color: transparent;
+      width: 30px;
+      height: 30px;
+      border: 4px solid #d0d0d0;
+      border-right-color: var(--primary-color);
       border-radius: 50%;
       box-sizing: border-box;
       display: inline-block;
@@ -276,6 +276,8 @@
       user-select: none;
       -webkit-user-select: none;
       -webkit-touch-callout: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+      border: 1px solid rgba(0,0,0,0.03);
     }
 
     .text-area {
@@ -361,15 +363,26 @@
       border-radius: 10px;
       background: transparent;
       color: #555;
-      font-size: 24px;
-      font-weight: bold;
       flex-shrink: 0;
       display: none;
       line-height: 1;
+      padding: 0;
+      align-items: center;
+      justify-content: center;
     }
 
     .app.edit-mode .item-edit-button {
-      display: block;
+      display: flex;
+    }
+
+    .edit-icon {
+      width: 21px;
+      height: 21px;
+      stroke: currentColor;
+      stroke-width: 2.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
     }
 
     /* =========================================================
@@ -681,7 +694,7 @@
     </div>
 
     <div class="footer">
-      <button class="undo-button" id="undoButton" onclick="openUndoConfirm()" aria-label="ひとつ前に戻る" disabled>
+      <button class="undo-button" id="undoButton" onclick="confirmUndo()" aria-label="ひとつ前に戻る" disabled>
         <svg class="undo-icon" viewBox="0 0 40 40" aria-hidden="true">
           <path d="M15 11 L8 18 L15 25"></path>
           <path d="M9 18 H23 C29 18 33 22 33 27 C33 32 29 36 23 36 H17"></path>
@@ -737,22 +750,10 @@
   <div class="modal-backdrop" id="deleteConfirmModal">
     <div class="modal">
       <h2>削除確認</h2>
-      <div class="confirm-message" id="deleteConfirmMessage">0点を削除しますか？</div>
+      <div class="confirm-message" id="deleteConfirmMessage">選択した項目を削除しますか？</div>
       <div class="modal-actions">
         <button class="cancel-button" onclick="closeDeleteConfirm()">いいえ</button>
         <button class="confirm-button danger" onclick="confirmDeleteItems()">はい</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ひとつ前に戻る確認モーダル -->
-  <div class="modal-backdrop" id="undoConfirmModal">
-    <div class="modal">
-      <h2>確認</h2>
-      <div class="confirm-message">ひとつ前のリストに戻しますか？</div>
-      <div class="modal-actions">
-        <button class="cancel-button" onclick="closeUndoConfirm()">いいえ</button>
-        <button class="confirm-button" onclick="confirmUndo()">はい</button>
       </div>
     </div>
   </div>
@@ -1289,7 +1290,14 @@
         </div>
 
         ${editMode ? `
-          <button class="item-edit-button" onclick="openEditModal('${item.id}')" aria-label="項目を編集">✎</button>
+          <button class="item-edit-button" onclick="openEditModal('${item.id}')" aria-label="項目を編集">
+            <svg class="edit-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 20h4"></path>
+              <path d="M6 18L17.5 6.5"></path>
+              <path d="M15.5 4.5L19.5 8.5"></path>
+              <path d="M17.5 6.5L19 5C19.6 4.4 20.6 4.4 21.2 5L21.5 5.3C22.1 5.9 22.1 6.9 21.5 7.5L20 9"></path>
+            </svg>
+          </button>
         ` : ""}
 
         ${createToggleHtml(item, index)}
@@ -1488,7 +1496,7 @@
       }
 
       document.getElementById("deleteConfirmMessage").textContent =
-        selectedIds.size + "点を削除しますか？";
+        "選択した項目を削除しますか？";
 
       document.getElementById("deleteConfirmModal").classList.add("show");
     }
@@ -1510,15 +1518,6 @@
     /* =========================================================
       10. ひとつ前に戻る
     ========================================================= */
-    function openUndoConfirm() {
-      if (!previousItems) return;
-      document.getElementById("undoConfirmModal").classList.add("show");
-    }
-
-    function closeUndoConfirm() {
-      document.getElementById("undoConfirmModal").classList.remove("show");
-    }
-
     function confirmUndo() {
       if (!previousItems) return;
 
@@ -1529,7 +1528,6 @@
       editMode = false;
       shoppingMode = false;
 
-      closeUndoConfirm();
       saveItems();
       render();
     }
