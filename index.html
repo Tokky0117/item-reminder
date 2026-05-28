@@ -50,7 +50,7 @@
     .header {
       flex-shrink: 0;
       background: var(--bg-color);
-      padding: 14px 12px 6px;
+      padding: 14px 12px 12px;
       position: relative;
     }
 
@@ -64,7 +64,7 @@
     h1 {
       text-align: center;
       font-size: 24px;
-      margin: 0 0 8px;
+      margin: 0;
     }
 
     .shopping-button,
@@ -98,13 +98,6 @@
     .shopping-button:disabled,
     .edit-button:disabled {
       opacity: 0.35;
-    }
-
-    #status {
-      text-align: center;
-      font-size: 13px;
-      color: #666;
-      min-height: 18px;
     }
 
     /* =========================================================
@@ -474,7 +467,36 @@
     }
 
     /* =========================================================
-      11. モーダル共通
+      11. トースト通知
+    ========================================================= */
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(92px + env(safe-area-inset-bottom));
+      transform: translate(-50%, 12px);
+      max-width: calc(100vw - 40px);
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: rgba(35, 35, 35, 0.86);
+      color: white;
+      font-size: 13px;
+      line-height: 1.4;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 180;
+      transition: opacity 0.22s ease, transform 0.22s ease;
+      box-sizing: border-box;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    /* =========================================================
+      12. モーダル共通
     ========================================================= */
     .modal-backdrop {
       position: fixed;
@@ -590,6 +612,10 @@
       line-height: 1.6;
       margin: 8px 0 18px;
     }
+
+    #loadFailureMessage {
+      white-space: pre-line;
+    }
   </style>
 </head>
 
@@ -601,7 +627,6 @@
         <h1>日用品リスト</h1>
         <button class="edit-button" onclick="toggleEditMode()" aria-label="編集">編集</button>
       </div>
-      <div id="status">読み込み中...</div>
     </div>
 
     <div id="items"></div>
@@ -620,6 +645,8 @@
       <button class="add-button" onclick="openAddModal()" aria-label="日用品を追加">＋日用品を追加</button>
     </div>
   </div>
+
+  <div class="toast" id="toast"></div>
 
   <!-- 追加 / 編集 共通モーダル -->
   <div class="modal-backdrop" id="itemModal">
@@ -699,6 +726,19 @@
     </div>
   </div>
 
+  <!-- 読み込み失敗モーダル -->
+  <div class="modal-backdrop" id="loadFailureModal">
+    <div class="modal">
+      <h2>読み込み失敗</h2>
+      <div class="confirm-message" id="loadFailureMessage">
+        リストを読み込めませんでした。
+      </div>
+      <div class="modal-actions">
+        <button class="confirm-button" onclick="closeLoadFailureModal()">OK</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     /* =========================================================
       1. 初期設定・状態変数
@@ -710,6 +750,7 @@
 
     let items = [];
     let saveTimer = null;
+    let toastTimer = null;
 
     let editMode = false;
     let shoppingMode = false;
@@ -730,12 +771,31 @@
     let isPulling = false;
 
     let isSaveFailureModalOpen = false;
+    let isLoadFailureModalOpen = false;
 
     /* =========================================================
       2. 共通ユーティリティ
     ========================================================= */
-    function setStatus(message) {
-      document.getElementById("status").textContent = message;
+    function showToast(message, duration = 2200) {
+      const toast = document.getElementById("toast");
+      if (!toast) return;
+
+      clearTimeout(toastTimer);
+
+      toast.textContent = message;
+      toast.classList.add("show");
+
+      toastTimer = setTimeout(() => {
+        toast.classList.remove("show");
+      }, duration);
+    }
+
+    function hideToast() {
+      const toast = document.getElementById("toast");
+      if (!toast) return;
+
+      clearTimeout(toastTimer);
+      toast.classList.remove("show");
     }
 
     function createId() {
@@ -796,6 +856,10 @@
       resetPullRefreshVisual();
     }
 
+    function isBlockingModalOpen() {
+      return isSaveFailureModalOpen || isLoadFailureModalOpen;
+    }
+
     /* =========================================================
       3. データ読み込み・保存
     ========================================================= */
@@ -813,11 +877,6 @@
         pullDistance = REFRESH_OFFSET;
         updateRefreshIndicator();
         updatePullRefreshVisual();
-        setStatus("更新中...");
-      } else if (afterSaveFailure) {
-        setStatus("再読み込み中...");
-      } else {
-        setStatus("読み込み中...");
       }
 
       const callbackName = "loadItemsCallback_" + Date.now();
@@ -842,9 +901,7 @@
         render();
 
         if (afterSaveFailure) {
-          setStatus("再読み込みしました");
-        } else {
-          setStatus(fromPull ? "更新しました" : "読み込み完了");
+          showToast("最新のリストに戻しました");
         }
 
         if (fromPull) {
@@ -859,14 +916,14 @@
       script.src = WEB_APP_URL + "?callback=" + callbackName;
 
       script.onerror = function() {
-        if (afterSaveFailure) {
-          setStatus("再読み込み失敗。通信状況を確認してください。");
-        } else {
-          setStatus("読み込み失敗。Apps Scriptのデプロイ設定を確認してください。");
-        }
-
         if (fromPull) {
           finishPullRefresh();
+        }
+
+        if (afterSaveFailure) {
+          openLoadFailureModal("最新のリストを再読み込みできませんでした。\n通信状況を確認してください。");
+        } else {
+          openLoadFailureModal("リストを読み込めませんでした。\n通信状況を確認してください。");
         }
 
         delete window[callbackName];
@@ -882,8 +939,6 @@
     }
 
     async function saveItems() {
-      setStatus("保存中...");
-
       try {
         await fetch(WEB_APP_URL, {
           method: "POST",
@@ -896,11 +951,8 @@
             items: items
           })
         });
-
-        setStatus("保存しました");
       } catch (error) {
         console.error(error);
-        setStatus("保存失敗");
         openSaveFailureModal();
       }
     }
@@ -1028,7 +1080,7 @@
         if (shoppingMode) return;
         if (editMode) return;
         if (isRefreshing) return;
-        if (isSaveFailureModalOpen) return;
+        if (isBlockingModalOpen()) return;
         if (container.scrollTop > 0) return;
         if (!event.touches || event.touches.length !== 1) return;
 
@@ -1040,7 +1092,7 @@
 
       container.addEventListener("touchmove", event => {
         if (!isPulling) return;
-        if (shoppingMode || editMode || isRefreshing || isSaveFailureModalOpen) {
+        if (shoppingMode || editMode || isRefreshing || isBlockingModalOpen()) {
           resetPullRefreshVisual();
           return;
         }
@@ -1070,7 +1122,7 @@
           !shoppingMode &&
           !editMode &&
           !isRefreshing &&
-          !isSaveFailureModalOpen;
+          !isBlockingModalOpen();
 
         isPulling = false;
 
@@ -1219,7 +1271,6 @@
       selectedIds.clear();
       resetPullRefreshVisual();
       render();
-      setStatus(editMode ? "編集モード" : "通常モード");
     }
 
     function toggleDeleteCheck(id, checked) {
@@ -1251,7 +1302,6 @@
       }
 
       render();
-      setStatus(shoppingMode ? "買いものモード" : "通常モード");
     }
 
     /* =========================================================
@@ -1369,7 +1419,7 @@
       clearTimeout(saveTimer);
 
       if (selectedIds.size === 0) {
-        setStatus("削除する項目を選んでください");
+        showToast("削除する項目を選んでください");
         return;
       }
 
@@ -1418,7 +1468,6 @@
       closeUndoConfirm();
       saveItems();
       render();
-      setStatus("ひとつ前のリストに戻しました");
     }
 
     /* =========================================================
@@ -1428,6 +1477,7 @@
       if (isSaveFailureModalOpen) return;
 
       isSaveFailureModalOpen = true;
+      hideToast();
       resetPullRefreshVisual();
       document.getElementById("saveFailureModal").classList.add("show");
     }
@@ -1445,7 +1495,26 @@
     }
 
     /* =========================================================
-      12. 初期実行
+      12. 読み込み失敗
+    ========================================================= */
+    function openLoadFailureModal(message) {
+      if (isLoadFailureModalOpen) return;
+
+      isLoadFailureModalOpen = true;
+      hideToast();
+      resetPullRefreshVisual();
+
+      document.getElementById("loadFailureMessage").textContent = message;
+      document.getElementById("loadFailureModal").classList.add("show");
+    }
+
+    function closeLoadFailureModal() {
+      isLoadFailureModalOpen = false;
+      document.getElementById("loadFailureModal").classList.remove("show");
+    }
+
+    /* =========================================================
+      13. 初期実行
     ========================================================= */
     setupPullToRefresh();
     loadItems();
