@@ -11,9 +11,6 @@
   <link rel="manifest" href="manifest.json">
 
   <style>
-    /* =========================================================
-      1. 基本設定
-    ========================================================= */
     :root {
       --footer-height: 86px;
       --policy-gap: 16px;
@@ -21,10 +18,11 @@
       --bg-color: #f5f5f5;
       --primary-color: #007aff;
       --danger-color: #ff3b30;
-      --edit-bg-color: #fff7e8;
-      --edit-header-color: #fff0d8;
-      --shopping-bg-color: #eef7ff;
-      --shopping-header-color: #e1f0ff;
+
+      --edit-bg-color: #eef7ff;
+      --edit-header-color: #e1f0ff;
+      --shopping-bg-color: #fff7e8;
+      --shopping-header-color: #fff0d8;
     }
 
     body {
@@ -57,9 +55,6 @@
       display: none;
     }
 
-    /* =========================================================
-      2. 起動画面
-    ========================================================= */
     .startup-screen {
       position: fixed;
       inset: 0;
@@ -97,9 +92,6 @@
       animation: spin 0.9s linear infinite;
     }
 
-    /* =========================================================
-      3. ヘッダー
-    ========================================================= */
     .header {
       flex-shrink: 0;
       background: var(--bg-color);
@@ -146,11 +138,11 @@
     }
 
     .app.edit-mode .mode-label {
-      color: #9a6400;
+      color: #0067b8;
     }
 
     .app.shopping-mode .mode-label {
-      color: #0067b8;
+      color: #9a6400;
     }
 
     .shopping-button,
@@ -186,9 +178,6 @@
       opacity: 0.35;
     }
 
-    /* =========================================================
-      4. リスト領域
-    ========================================================= */
     #items {
       flex: 1;
       min-height: 0;
@@ -286,9 +275,6 @@
       padding: 30px;
     }
 
-    /* =========================================================
-      5. 左側チェック欄：編集モード
-    ========================================================= */
     .side-check-wrap {
       width: 30px;
       flex-shrink: 0;
@@ -352,9 +338,6 @@
       transform: rotate(-45deg) scale(1);
     }
 
-    /* =========================================================
-      6. 項目バナー
-    ========================================================= */
     .item {
       background: white;
       padding: 7px 10px;
@@ -408,9 +391,6 @@
       font-weight: normal;
     }
 
-    /* =========================================================
-      7. 担当アイコン
-    ========================================================= */
     .icon-wrap {
       position: relative;
       flex-shrink: 0;
@@ -442,9 +422,6 @@
       color: white;
     }
 
-    /* =========================================================
-      8. 項目編集ボタン
-    ========================================================= */
     .item-edit-button {
       width: 34px;
       height: 34px;
@@ -474,9 +451,6 @@
       fill: none;
     }
 
-    /* =========================================================
-      9. 予備状態バッジ
-    ========================================================= */
     .spare-badge {
       flex-shrink: 0;
       min-width: 70px;
@@ -509,41 +483,10 @@
       transform: none;
     }
 
-    /* =========================================================
-      10. 右下フローティング操作：削除
-    ========================================================= */
-    .floating-action-area {
-      position: fixed;
-      right: 14px;
-      bottom: calc(96px + env(safe-area-inset-bottom));
-      display: none;
-      z-index: 60;
-      pointer-events: none;
-    }
-
-    .app.edit-mode .delete-area {
-      display: block;
-    }
-
-    .delete-selected-button {
-      border: none;
-      color: white;
-      font-size: 15px;
-      font-weight: bold;
-      padding: 12px 16px;
-      border-radius: 18px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.22);
-      pointer-events: auto;
-      background: var(--danger-color);
-    }
-
-    /* =========================================================
-      11. 下部固定操作バー
-    ========================================================= */
     .footer {
       flex-shrink: 0;
       display: flex;
-      gap: 12px;
+      gap: 10px;
       align-items: center;
       padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
       background: rgba(245, 245, 245, 0.96);
@@ -584,17 +527,32 @@
     .add-button {
       display: none;
       flex: 1;
-      height: 58px;
+      height: 54px;
       border: none;
-      border-radius: 18px;
+      border-radius: 16px;
       background: var(--primary-color);
       color: white;
-      font-size: 20px;
+      font-size: 17px;
       font-weight: bold;
       transition: background 0.18s ease, color 0.18s ease, opacity 0.18s ease;
     }
 
-    .app.edit-mode .add-button {
+    .delete-footer-button {
+      display: none;
+      width: 86px;
+      height: 54px;
+      border: none;
+      border-radius: 16px;
+      background: var(--danger-color);
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      flex-shrink: 0;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.16);
+    }
+
+    .app.edit-mode .add-button,
+    .app.edit-mode .delete-footer-button {
       display: block;
     }
 
@@ -604,9 +562,6 @@
       opacity: 1;
     }
 
-    /* =========================================================
-      12. トースト通知
-    ========================================================= */
     .toast {
       position: fixed;
       left: 50%;
@@ -633,9 +588,6 @@
       transform: translate(-50%, 0);
     }
 
-    /* =========================================================
-      13. モーダル共通
-    ========================================================= */
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -775,10 +727,6 @@
 
     <div id="items"></div>
 
-    <div class="floating-action-area delete-area">
-      <button class="delete-selected-button" onclick="openDeleteConfirm()">選択項目を削除</button>
-    </div>
-
     <div class="footer">
       <button class="undo-button" id="undoButton" onclick="confirmUndo()" aria-label="ひとつ前に戻る" disabled>
         <svg class="undo-icon" viewBox="0 0 40 40" aria-hidden="true">
@@ -787,12 +735,12 @@
         </svg>
       </button>
       <button class="add-button" id="addButton" onclick="openAddModal()" aria-label="日用品を追加">＋ 追加</button>
+      <button class="delete-footer-button" id="deleteFooterButton" onclick="openDeleteConfirm()" aria-label="選択項目を削除">削除</button>
     </div>
   </div>
 
   <div class="toast" id="toast"></div>
 
-  <!-- 追加 / 編集 共通モーダル -->
   <div class="modal-backdrop" id="itemModal">
     <div class="modal">
       <h2 id="itemModalTitle">日用品を追加</h2>
@@ -832,7 +780,6 @@
     </div>
   </div>
 
-  <!-- 削除確認モーダル -->
   <div class="modal-backdrop" id="deleteConfirmModal">
     <div class="modal">
       <h2>削除確認</h2>
@@ -844,7 +791,6 @@
     </div>
   </div>
 
-  <!-- 保存失敗モーダル -->
   <div class="modal-backdrop" id="saveFailureModal">
     <div class="modal">
       <h2>保存失敗</h2>
@@ -858,7 +804,6 @@
     </div>
   </div>
 
-  <!-- 読み込み失敗モーダル -->
   <div class="modal-backdrop" id="loadFailureModal">
     <div class="modal">
       <h2>読み込み失敗</h2>
@@ -872,9 +817,6 @@
   </div>
 
   <script>
-    /* =========================================================
-      1. 初期設定・状態変数
-    ========================================================= */
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxDuS5ZIUcb6ifMwJ5S86CZrV7YCnMsolM0lKbw7p71CK2mn_lWtT1LRzt9iIGpX04h/exec";
     const REFRESH_OFFSET = 56;
     const PULL_TRIGGER_DISTANCE = 72;
@@ -906,9 +848,6 @@
     let isSaveFailureModalOpen = false;
     let isLoadFailureModalOpen = false;
 
-    /* =========================================================
-      2. 共通ユーティリティ
-    ========================================================= */
     function showToast(message, duration = 2200) {
       const toast = document.getElementById("toast");
       if (!toast) return;
@@ -981,7 +920,6 @@
     function getIconClass(icon) {
       if (icon === "か") return "icon-ka";
       if (icon === "み") return "icon-mi";
-      if (icon === "共") return "icon-kyo";
       return "icon-kyo";
     }
 
@@ -1018,9 +956,6 @@
       return isSaveFailureModalOpen || isLoadFailureModalOpen;
     }
 
-    /* =========================================================
-      3. データ読み込み・保存
-    ========================================================= */
     function loadItems(options = {}) {
       const fromPull = options.fromPull === true;
       const afterSaveFailure = options.afterSaveFailure === true;
@@ -1118,9 +1053,6 @@
       }
     }
 
-    /* =========================================================
-      4. 描画処理
-    ========================================================= */
     function render() {
       updateAppModeClasses();
       updateUndoButton();
@@ -1204,7 +1136,6 @@
     function updateRefreshIndicator() {
       const icon = document.getElementById("refreshIcon");
       if (!icon) return;
-
       icon.classList.toggle("spinning", isRefreshing);
     }
 
@@ -1353,7 +1284,6 @@
 
       row.innerHTML = `
         ${createSideCheckHtml(item)}
-
         <div class="item">
           ${createIconHtml(item)}
           ${createItemContentHtml(item, index)}
@@ -1426,7 +1356,12 @@
     }
 
     function createSpareBadgeHtml(item, index) {
-      const label = item.hasSpare ? "予備あり" : "予備なし";
+      let label = item.hasSpare ? "予備あり" : "予備なし";
+
+      if (shoppingMode) {
+        label = item.hasSpare ? "購入" : "未購入";
+      }
+
       const className = item.hasSpare ? "has-spare" : "no-spare";
 
       return `
@@ -1442,9 +1377,6 @@
       `;
     }
 
-    /* =========================================================
-      5. 通常モード / 買いものモード共通操作
-    ========================================================= */
     function toggleSpare(index) {
       if (editMode) return;
       if (index < 0 || !items[index]) return;
@@ -1455,9 +1387,6 @@
       render();
     }
 
-    /* =========================================================
-      6. 編集モード
-    ========================================================= */
     function toggleEditMode() {
       if (shoppingMode) return;
 
@@ -1475,9 +1404,6 @@
       }
     }
 
-    /* =========================================================
-      7. 買いものモード
-    ========================================================= */
     function toggleShoppingMode() {
       if (editMode) return;
 
@@ -1498,9 +1424,6 @@
       render();
     }
 
-    /* =========================================================
-      8. 追加 / 編集モーダル
-    ========================================================= */
     function openAddModal() {
       if (!editMode || shoppingMode) return;
 
@@ -1608,9 +1531,6 @@
       });
     }
 
-    /* =========================================================
-      9. 削除確認モーダル
-    ========================================================= */
     function openDeleteConfirm() {
       clearTimeout(saveTimer);
 
@@ -1639,9 +1559,6 @@
       render();
     }
 
-    /* =========================================================
-      10. ひとつ前に戻る
-    ========================================================= */
     function confirmUndo() {
       if (!previousItems) return;
 
@@ -1656,9 +1573,6 @@
       render();
     }
 
-    /* =========================================================
-      11. 保存失敗時の再読み込み
-    ========================================================= */
     function openSaveFailureModal() {
       if (isSaveFailureModalOpen) return;
 
@@ -1680,9 +1594,6 @@
       loadItems({ afterSaveFailure: true });
     }
 
-    /* =========================================================
-      12. 読み込み失敗
-    ========================================================= */
     function openLoadFailureModal(message) {
       if (isLoadFailureModalOpen) return;
 
@@ -1699,9 +1610,6 @@
       document.getElementById("loadFailureModal").classList.remove("show");
     }
 
-    /* =========================================================
-      13. 初期実行
-    ========================================================= */
     setupPullToRefresh();
     loadItems();
 
