@@ -45,7 +45,47 @@
     }
 
     /* =========================================================
-      2. ヘッダー
+      2. 起動画面
+    ========================================================= */
+    .startup-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      background: var(--bg-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      opacity: 1;
+      transition: opacity 0.24s ease;
+      pointer-events: auto;
+    }
+
+    .startup-screen.hide {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .startup-title {
+      font-size: 24px;
+      font-weight: bold;
+      color: #111;
+      letter-spacing: 0.02em;
+    }
+
+    .startup-spinner {
+      width: 30px;
+      height: 30px;
+      border: 4px solid #d0d0d0;
+      border-right-color: var(--primary-color);
+      border-radius: 50%;
+      box-sizing: border-box;
+      animation: spin 0.9s linear infinite;
+    }
+
+    /* =========================================================
+      3. ヘッダー
     ========================================================= */
     .header {
       flex-shrink: 0;
@@ -101,7 +141,7 @@
     }
 
     /* =========================================================
-      3. リスト領域
+      4. リスト領域
     ========================================================= */
     #items {
       flex: 1;
@@ -200,7 +240,7 @@
     }
 
     /* =========================================================
-      4. 左側チェック欄：編集モード
+      5. 左側チェック欄：編集モード
     ========================================================= */
     .side-check-wrap {
       width: 30px;
@@ -221,7 +261,7 @@
     }
 
     /* =========================================================
-      5. 項目バナー
+      6. 項目バナー
     ========================================================= */
     .item {
       background: white;
@@ -275,7 +315,7 @@
     }
 
     /* =========================================================
-      6. 担当アイコン
+      7. 担当アイコン
     ========================================================= */
     .icon-wrap {
       position: relative;
@@ -312,7 +352,7 @@
     }
 
     /* =========================================================
-      7. 項目編集ボタン
+      8. 項目編集ボタン
     ========================================================= */
     .item-edit-button {
       width: 34px;
@@ -333,7 +373,7 @@
     }
 
     /* =========================================================
-      8. iPhone風 予備トグル
+      9. iPhone風 予備トグル
     ========================================================= */
     .toggle-wrap {
       flex-shrink: 0;
@@ -384,7 +424,7 @@
     }
 
     /* =========================================================
-      9. 右下フローティング操作：削除
+      10. 右下フローティング操作：削除
     ========================================================= */
     .floating-action-area {
       position: fixed;
@@ -412,7 +452,7 @@
     }
 
     /* =========================================================
-      10. 下部固定操作バー
+      11. 下部固定操作バー
     ========================================================= */
     .footer {
       flex-shrink: 0;
@@ -467,7 +507,7 @@
     }
 
     /* =========================================================
-      11. トースト通知
+      12. トースト通知
     ========================================================= */
     .toast {
       position: fixed;
@@ -496,7 +536,7 @@
     }
 
     /* =========================================================
-      12. モーダル共通
+      13. モーダル共通
     ========================================================= */
     .modal-backdrop {
       position: fixed;
@@ -593,935 +633,4 @@
     }
 
     .confirm-button {
-      background: var(--primary-color);
-      color: white;
-    }
-
-    .confirm-button.danger {
-      background: var(--danger-color);
-    }
-
-    .confirm-button:disabled {
-      background: #c8c8c8;
-      color: #777;
-    }
-
-    .confirm-message {
-      text-align: center;
-      font-size: 16px;
-      line-height: 1.6;
-      margin: 8px 0 18px;
-    }
-
-    #loadFailureMessage {
-      white-space: pre-line;
-    }
-  </style>
-</head>
-
-<body>
-  <div class="app" id="app">
-    <div class="header">
-      <div class="title-row">
-        <button class="shopping-button" onclick="toggleShoppingMode()" aria-label="買いものリスト">買いもの</button>
-        <h1>日用品リスト</h1>
-        <button class="edit-button" onclick="toggleEditMode()" aria-label="編集">編集</button>
-      </div>
-    </div>
-
-    <div id="items"></div>
-
-    <div class="floating-action-area delete-area">
-      <button class="delete-selected-button" onclick="openDeleteConfirm()">削除</button>
-    </div>
-
-    <div class="footer">
-      <button class="undo-button" id="undoButton" onclick="openUndoConfirm()" aria-label="ひとつ前に戻る" disabled>
-        <svg class="undo-icon" viewBox="0 0 40 40" aria-hidden="true">
-          <path d="M15 11 L8 18 L15 25"></path>
-          <path d="M9 18 H23 C29 18 33 22 33 27 C33 32 29 36 23 36 H17"></path>
-        </svg>
-      </button>
-      <button class="add-button" onclick="openAddModal()" aria-label="日用品を追加">＋日用品を追加</button>
-    </div>
-  </div>
-
-  <div class="toast" id="toast"></div>
-
-  <!-- 追加 / 編集 共通モーダル -->
-  <div class="modal-backdrop" id="itemModal">
-    <div class="modal">
-      <h2 id="itemModalTitle">日用品を追加</h2>
-
-      <div class="field">
-        <label>担当</label>
-        <div class="owner-options">
-          <button class="owner-option selected" id="modalOwnerKyo" onclick="setModalIcon('共')">共同</button>
-          <button class="owner-option" id="modalOwnerKa" onclick="setModalIcon('か')">かずまさ</button>
-          <button class="owner-option" id="modalOwnerMi" onclick="setModalIcon('み')">みゆう</button>
-        </div>
-      </div>
-
-      <div class="field">
-        <label>項目名</label>
-        <input
-          id="modalName"
-          type="text"
-          placeholder="例：トイレットペーパー"
-          oninput="validateItemModal()"
-        >
-      </div>
-
-      <div class="field">
-        <label>備考</label>
-        <input
-          id="modalNote"
-          type="text"
-          placeholder="任意"
-        >
-      </div>
-
-      <div class="modal-actions">
-        <button class="cancel-button" onclick="closeItemModal()">キャンセル</button>
-        <button class="confirm-button" id="modalConfirm" onclick="confirmItemModal()" disabled>決定</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 削除確認モーダル -->
-  <div class="modal-backdrop" id="deleteConfirmModal">
-    <div class="modal">
-      <h2>削除確認</h2>
-      <div class="confirm-message" id="deleteConfirmMessage">0点を削除しますか？</div>
-      <div class="modal-actions">
-        <button class="cancel-button" onclick="closeDeleteConfirm()">いいえ</button>
-        <button class="confirm-button danger" onclick="confirmDeleteItems()">はい</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ひとつ前に戻る確認モーダル -->
-  <div class="modal-backdrop" id="undoConfirmModal">
-    <div class="modal">
-      <h2>確認</h2>
-      <div class="confirm-message">ひとつ前のリストに戻しますか？</div>
-      <div class="modal-actions">
-        <button class="cancel-button" onclick="closeUndoConfirm()">いいえ</button>
-        <button class="confirm-button" onclick="confirmUndo()">はい</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 保存失敗モーダル -->
-  <div class="modal-backdrop" id="saveFailureModal">
-    <div class="modal">
-      <h2>保存失敗</h2>
-      <div class="confirm-message">
-        保存に失敗しました。<br>
-        最新のリストを再読み込みします。
-      </div>
-      <div class="modal-actions">
-        <button class="confirm-button" onclick="confirmSaveFailureReload()">OK</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 読み込み失敗モーダル -->
-  <div class="modal-backdrop" id="loadFailureModal">
-    <div class="modal">
-      <h2>読み込み失敗</h2>
-      <div class="confirm-message" id="loadFailureMessage">
-        リストを読み込めませんでした。
-      </div>
-      <div class="modal-actions">
-        <button class="confirm-button" onclick="closeLoadFailureModal()">OK</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    /* =========================================================
-      1. 初期設定・状態変数
-    ========================================================= */
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxDuS5ZIUcb6ifMwJ5S86CZrV7YCnMsolM0lKbw7p71CK2mn_lWtT1LRzt9iIGpX04h/exec";
-    const REFRESH_OFFSET = 56;
-    const PULL_TRIGGER_DISTANCE = 72;
-    const PULL_MAX_DISTANCE = 96;
-
-    let items = [];
-    let saveTimer = null;
-    let toastTimer = null;
-
-    let editMode = false;
-    let shoppingMode = false;
-
-    let selectedIds = new Set();
-    let shoppingModeItemIds = new Set();
-
-    let modalMode = "add";
-    let editingItemId = null;
-    let modalIcon = "共";
-
-    let previousItems = null;
-    let isRefreshing = false;
-    let itemsScrollInitialized = false;
-
-    let pullStartY = 0;
-    let pullDistance = 0;
-    let isPulling = false;
-
-    let isSaveFailureModalOpen = false;
-    let isLoadFailureModalOpen = false;
-
-    /* =========================================================
-      2. 共通ユーティリティ
-    ========================================================= */
-    function showToast(message, duration = 2200) {
-      const toast = document.getElementById("toast");
-      if (!toast) return;
-
-      clearTimeout(toastTimer);
-
-      toast.textContent = message;
-      toast.classList.add("show");
-
-      toastTimer = setTimeout(() => {
-        toast.classList.remove("show");
-      }, duration);
-    }
-
-    function hideToast() {
-      const toast = document.getElementById("toast");
-      if (!toast) return;
-
-      clearTimeout(toastTimer);
-      toast.classList.remove("show");
-    }
-
-    function createId() {
-      return Date.now().toString() + "-" + Math.random().toString(36).slice(2);
-    }
-
-    function cloneItems(sourceItems) {
-      return JSON.parse(JSON.stringify(sourceItems));
-    }
-
-    function rememberPreviousItems() {
-      previousItems = cloneItems(items);
-      updateUndoButton();
-    }
-
-    function clearPreviousItems() {
-      previousItems = null;
-      updateUndoButton();
-    }
-
-    function updateUndoButton() {
-      const button = document.getElementById("undoButton");
-      if (!button) return;
-      button.disabled = !previousItems;
-    }
-
-    function escapeHtml(text) {
-      return String(text)
-        .replaceAll("&", "&amp;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;");
-    }
-
-    function getIconClass(icon) {
-      if (icon === "か") return "icon-ka";
-      if (icon === "み") return "icon-mi";
-      if (icon === "共") return "icon-kyo";
-      return "icon-kyo";
-    }
-
-    function normalizeItems(data) {
-      return data.map(item => ({
-        id: item.id || createId(),
-        name: item.name || "",
-        hasSpare: item.hasSpare === true || item.hasSpare === "TRUE",
-        note: item.note || "",
-        icon: item.icon || "共"
-      }));
-    }
-
-    function resetModesAndSelections() {
-      selectedIds.clear();
-      shoppingModeItemIds.clear();
-      editMode = false;
-      shoppingMode = false;
-      clearPreviousItems();
-      resetPullRefreshVisual();
-    }
-
-    function isBlockingModalOpen() {
-      return isSaveFailureModalOpen || isLoadFailureModalOpen;
-    }
-
-    /* =========================================================
-      3. データ読み込み・保存
-    ========================================================= */
-    function loadItems(options = {}) {
-      const fromPull = options.fromPull === true;
-      const afterSaveFailure = options.afterSaveFailure === true;
-
-      if (fromPull && shoppingMode) {
-        resetPullRefreshVisual();
-        return;
-      }
-
-      if (fromPull) {
-        isRefreshing = true;
-        pullDistance = REFRESH_OFFSET;
-        updateRefreshIndicator();
-        updatePullRefreshVisual();
-      }
-
-      const callbackName = "loadItemsCallback_" + Date.now();
-
-      window[callbackName] = function(data) {
-        items = normalizeItems(data);
-        selectedIds.clear();
-
-        if (!shoppingMode) {
-          shoppingModeItemIds.clear();
-        }
-
-        if (afterSaveFailure) {
-          editMode = false;
-          shoppingMode = false;
-          selectedIds.clear();
-          shoppingModeItemIds.clear();
-          resetPullRefreshVisual();
-        }
-
-        clearPreviousItems();
-        render();
-
-        if (afterSaveFailure) {
-          showToast("最新のリストに戻しました");
-        }
-
-        if (fromPull) {
-          finishPullRefresh();
-        }
-
-        delete window[callbackName];
-        script.remove();
-      };
-
-      const script = document.createElement("script");
-      script.src = WEB_APP_URL + "?callback=" + callbackName;
-
-      script.onerror = function() {
-        if (fromPull) {
-          finishPullRefresh();
-        }
-
-        if (afterSaveFailure) {
-          openLoadFailureModal("最新のリストを再読み込みできませんでした。\n通信状況を確認してください。");
-        } else {
-          openLoadFailureModal("リストを読み込めませんでした。\n通信状況を確認してください。");
-        }
-
-        delete window[callbackName];
-        script.remove();
-      };
-
-      document.body.appendChild(script);
-    }
-
-    function saveItemsSoon() {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(saveItems, 500);
-    }
-
-    async function saveItems() {
-      try {
-        await fetch(WEB_APP_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: {
-            "Content-Type": "text/plain"
-          },
-          body: JSON.stringify({
-            action: "saveAll",
-            items: items
-          })
-        });
-      } catch (error) {
-        console.error(error);
-        openSaveFailureModal();
-      }
-    }
-
-    /* =========================================================
-      4. 描画処理
-    ========================================================= */
-    function render() {
-      updateAppModeClasses();
-      updateUndoButton();
-
-      const container = document.getElementById("items");
-      const previousScrollTop = container.scrollTop;
-      const shouldInitializeScroll = !itemsScrollInitialized;
-
-      container.innerHTML = "";
-      container.appendChild(createPullRefreshElement());
-
-      const displayItems = getDisplayItems();
-
-      if (shoppingMode && displayItems.length === 0) {
-        renderEmptyShoppingMessage(container);
-        restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll);
-        updatePullRefreshVisual();
-        return;
-      }
-
-      displayItems.forEach(item => {
-        container.appendChild(createItemRow(item));
-      });
-
-      restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll);
-      updatePullRefreshVisual();
-    }
-
-    function updateAppModeClasses() {
-      const app = document.getElementById("app");
-      app.classList.toggle("edit-mode", editMode);
-      app.classList.toggle("shopping-mode", shoppingMode);
-
-      const editButton = document.querySelector(".edit-button");
-      const shoppingButton = document.querySelector(".shopping-button");
-
-      editButton.classList.toggle("active", editMode);
-      shoppingButton.classList.toggle("active", shoppingMode);
-
-      editButton.disabled = shoppingMode;
-      shoppingButton.disabled = editMode;
-    }
-
-    function createPullRefreshElement() {
-      const refresh = document.createElement("div");
-      refresh.className = "pull-refresh";
-      refresh.innerHTML = `<span class="refresh-icon ${isRefreshing ? "spinning" : ""}" id="refreshIcon"></span>`;
-      return refresh;
-    }
-
-    function restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll) {
-      requestAnimationFrame(() => {
-        if (shouldInitializeScroll) {
-          container.scrollTop = 0;
-          itemsScrollInitialized = true;
-          return;
-        }
-
-        if (isRefreshing) return;
-
-        container.scrollTop = Math.max(previousScrollTop, 0);
-      });
-    }
-
-    function updateRefreshIndicator() {
-      const icon = document.getElementById("refreshIcon");
-      if (!icon) return;
-
-      icon.classList.toggle("spinning", isRefreshing);
-    }
-
-    function updatePullRefreshVisual() {
-      const container = document.getElementById("items");
-      const refresh = document.querySelector(".pull-refresh");
-      if (!container || !refresh) return;
-
-      const visible = pullDistance > 0 || isRefreshing;
-      const distance = isRefreshing ? REFRESH_OFFSET : pullDistance;
-      const contentOffset = visible ? distance : 0;
-
-      container.style.setProperty("--pull-content-offset", contentOffset + "px");
-
-      container.classList.toggle("pull-moving", isPulling && !isRefreshing);
-      container.classList.toggle("pull-settling", !isPulling || isRefreshing);
-
-      refresh.style.transform = `translateY(${distance}px)`;
-      refresh.classList.toggle("visible", visible);
-      refresh.classList.toggle("ready", pullDistance >= PULL_TRIGGER_DISTANCE && !isRefreshing);
-
-      updateRefreshIndicator();
-    }
-
-    function resetPullRefreshVisual() {
-      const container = document.getElementById("items");
-
-      isPulling = false;
-      pullStartY = 0;
-      pullDistance = 0;
-
-      if (container) {
-        container.classList.remove("pull-moving");
-        container.classList.add("pull-settling");
-      }
-
-      updatePullRefreshVisual();
-
-      setTimeout(() => {
-        if (container) {
-          container.classList.remove("pull-settling");
-        }
-      }, 240);
-    }
-
-    function setupPullToRefresh() {
-      const container = document.getElementById("items");
-
-      container.addEventListener("touchstart", event => {
-        if (shoppingMode) return;
-        if (editMode) return;
-        if (isRefreshing) return;
-        if (isBlockingModalOpen()) return;
-        if (container.scrollTop > 0) return;
-        if (!event.touches || event.touches.length !== 1) return;
-
-        isPulling = true;
-        pullStartY = event.touches[0].clientY;
-        pullDistance = 0;
-        updatePullRefreshVisual();
-      }, { passive: true });
-
-      container.addEventListener("touchmove", event => {
-        if (!isPulling) return;
-        if (shoppingMode || editMode || isRefreshing || isBlockingModalOpen()) {
-          resetPullRefreshVisual();
-          return;
-        }
-
-        const currentY = event.touches[0].clientY;
-        const deltaY = currentY - pullStartY;
-
-        if (deltaY <= 0 || container.scrollTop > 0) {
-          pullDistance = 0;
-          updatePullRefreshVisual();
-          return;
-        }
-
-        pullDistance = Math.min(deltaY * 0.55, PULL_MAX_DISTANCE);
-        updatePullRefreshVisual();
-
-        if (deltaY > 6) {
-          event.preventDefault();
-        }
-      }, { passive: false });
-
-      container.addEventListener("touchend", () => {
-        if (!isPulling) return;
-
-        const shouldRefresh =
-          pullDistance >= PULL_TRIGGER_DISTANCE &&
-          !shoppingMode &&
-          !editMode &&
-          !isRefreshing &&
-          !isBlockingModalOpen();
-
-        isPulling = false;
-
-        if (shouldRefresh) {
-          loadItems({ fromPull: true });
-        } else {
-          resetPullRefreshVisual();
-        }
-      }, { passive: true });
-
-      container.addEventListener("touchcancel", () => {
-        resetPullRefreshVisual();
-      }, { passive: true });
-    }
-
-    function finishPullRefresh() {
-      const container = document.getElementById("items");
-
-      requestAnimationFrame(() => {
-        container.scrollTo({
-          top: 0,
-          behavior: "smooth"
-        });
-
-        setTimeout(() => {
-          isRefreshing = false;
-          resetPullRefreshVisual();
-        }, 350);
-      });
-    }
-
-    function getDisplayItems() {
-      if (!shoppingMode) {
-        return items;
-      }
-
-      return items.filter(item => shoppingModeItemIds.has(item.id));
-    }
-
-    function renderEmptyShoppingMessage(container) {
-      const empty = document.createElement("div");
-      empty.className = "empty-list-message";
-      empty.textContent = "買いもの対象はありません";
-      container.appendChild(empty);
-    }
-
-    function createItemRow(item) {
-      const index = items.findIndex(baseItem => baseItem.id === item.id);
-      const row = document.createElement("div");
-      row.className = "row";
-
-      row.innerHTML = `
-        ${createSideCheckHtml(item)}
-
-        <div class="item">
-          ${createIconHtml(item)}
-          ${createItemContentHtml(item, index)}
-        </div>
-      `;
-
-      return row;
-    }
-
-    function createSideCheckHtml(item) {
-      if (editMode) {
-        return `
-          <div class="side-check-wrap">
-            <input
-              class="side-check"
-              type="checkbox"
-              ${selectedIds.has(item.id) ? "checked" : ""}
-              onchange="toggleDeleteCheck('${item.id}', this.checked)"
-            >
-          </div>
-        `;
-      }
-
-      return `<div class="side-check-wrap"></div>`;
-    }
-
-    function createIconHtml(item) {
-      return `
-        <div class="icon-wrap">
-          <button class="icon-button ${getIconClass(item.icon)}" disabled>
-            ${item.icon}
-          </button>
-        </div>
-      `;
-    }
-
-    function createItemContentHtml(item, index) {
-      const hasNote = item.note.trim().length > 0;
-
-      return `
-        <div class="text-area ${hasNote ? "" : "no-note"}">
-          <div class="name-text ${item.name ? "" : "empty-text"}">
-            ${escapeHtml(item.name || "名称未入力")}
-          </div>
-          ${hasNote ? `<div class="note-text">${escapeHtml(item.note)}</div>` : ""}
-        </div>
-
-        ${editMode ? `
-          <button class="item-edit-button" onclick="openEditModal('${item.id}')" aria-label="項目を編集">✎</button>
-        ` : ""}
-
-        ${createToggleHtml(item, index)}
-      `;
-    }
-
-    function createToggleHtml(item, index) {
-      return `
-        <div class="toggle-wrap">
-          <input
-            id="toggle-${item.id}"
-            class="switch-input"
-            type="checkbox"
-            ${item.hasSpare ? "checked" : ""}
-            ${editMode ? "disabled" : ""}
-            onchange="toggleSpare(${index})"
-          >
-          <label class="switch-label" for="toggle-${item.id}"></label>
-        </div>
-      `;
-    }
-
-    /* =========================================================
-      5. 通常モード / 買いものモード共通操作
-    ========================================================= */
-    function toggleSpare(index) {
-      if (editMode) return;
-      if (index < 0 || !items[index]) return;
-
-      rememberPreviousItems();
-      items[index].hasSpare = !items[index].hasSpare;
-      saveItems();
-      render();
-    }
-
-    /* =========================================================
-      6. 編集モード
-    ========================================================= */
-    function toggleEditMode() {
-      if (shoppingMode) return;
-
-      editMode = !editMode;
-      selectedIds.clear();
-      resetPullRefreshVisual();
-      render();
-    }
-
-    function toggleDeleteCheck(id, checked) {
-      if (checked) {
-        selectedIds.add(id);
-      } else {
-        selectedIds.delete(id);
-      }
-    }
-
-    /* =========================================================
-      7. 買いものモード
-    ========================================================= */
-    function toggleShoppingMode() {
-      if (editMode) return;
-
-      shoppingMode = !shoppingMode;
-      selectedIds.clear();
-      resetPullRefreshVisual();
-
-      if (shoppingMode) {
-        shoppingModeItemIds = new Set(
-          items
-            .filter(item => !item.hasSpare)
-            .map(item => item.id)
-        );
-      } else {
-        shoppingModeItemIds.clear();
-      }
-
-      render();
-    }
-
-    /* =========================================================
-      8. 追加 / 編集モーダル
-    ========================================================= */
-    function openAddModal() {
-      modalMode = "add";
-      editingItemId = null;
-      modalIcon = "共";
-
-      document.getElementById("itemModalTitle").textContent = "日用品を追加";
-      document.getElementById("modalName").value = "";
-      document.getElementById("modalNote").value = "";
-      document.getElementById("modalConfirm").disabled = true;
-
-      updateModalOwnerButtons();
-      document.getElementById("itemModal").classList.add("show");
-
-      setTimeout(() => {
-        document.getElementById("modalName").focus();
-      }, 100);
-    }
-
-    function openEditModal(id) {
-      const item = items.find(item => item.id === id);
-      if (!item) return;
-
-      modalMode = "edit";
-      editingItemId = id;
-      modalIcon = item.icon || "共";
-
-      document.getElementById("itemModalTitle").textContent = "日用品を編集";
-      document.getElementById("modalName").value = item.name || "";
-      document.getElementById("modalNote").value = item.note || "";
-      document.getElementById("modalConfirm").disabled = !(item.name || "").trim();
-
-      updateModalOwnerButtons();
-      document.getElementById("itemModal").classList.add("show");
-
-      setTimeout(() => {
-        document.getElementById("modalName").focus();
-      }, 100);
-    }
-
-    function closeItemModal() {
-      document.getElementById("itemModal").classList.remove("show");
-    }
-
-    function setModalIcon(icon) {
-      modalIcon = icon;
-      updateModalOwnerButtons();
-    }
-
-    function updateModalOwnerButtons() {
-      document.getElementById("modalOwnerKyo").classList.toggle("selected", modalIcon === "共");
-      document.getElementById("modalOwnerKa").classList.toggle("selected", modalIcon === "か");
-      document.getElementById("modalOwnerMi").classList.toggle("selected", modalIcon === "み");
-    }
-
-    function validateItemModal() {
-      const name = document.getElementById("modalName").value.trim();
-      document.getElementById("modalConfirm").disabled = name.length === 0;
-    }
-
-    function confirmItemModal() {
-      const name = document.getElementById("modalName").value.trim();
-      const note = document.getElementById("modalNote").value.trim();
-
-      if (!name) return;
-
-      rememberPreviousItems();
-
-      if (modalMode === "add") {
-        addItemFromModal(name, note);
-      }
-
-      if (modalMode === "edit") {
-        updateItemFromModal(name, note);
-      }
-
-      closeItemModal();
-      saveItems();
-      render();
-    }
-
-    function addItemFromModal(name, note) {
-      items.push({
-        id: createId(),
-        name: name,
-        hasSpare: false,
-        note: note,
-        icon: modalIcon
-      });
-    }
-
-    function updateItemFromModal(name, note) {
-      items = items.map(item => {
-        if (item.id === editingItemId) {
-          return {
-            ...item,
-            name: name,
-            note: note,
-            icon: modalIcon
-          };
-        }
-
-        return item;
-      });
-    }
-
-    /* =========================================================
-      9. 削除確認モーダル
-    ========================================================= */
-    function openDeleteConfirm() {
-      clearTimeout(saveTimer);
-
-      if (selectedIds.size === 0) {
-        showToast("削除する項目を選んでください");
-        return;
-      }
-
-      document.getElementById("deleteConfirmMessage").textContent =
-        selectedIds.size + "点を削除しますか？";
-
-      document.getElementById("deleteConfirmModal").classList.add("show");
-    }
-
-    function closeDeleteConfirm() {
-      document.getElementById("deleteConfirmModal").classList.remove("show");
-    }
-
-    function confirmDeleteItems() {
-      rememberPreviousItems();
-      items = items.filter(item => !selectedIds.has(item.id));
-      selectedIds.clear();
-
-      closeDeleteConfirm();
-      saveItems();
-      render();
-    }
-
-    /* =========================================================
-      10. ひとつ前に戻る
-    ========================================================= */
-    function openUndoConfirm() {
-      if (!previousItems) return;
-      document.getElementById("undoConfirmModal").classList.add("show");
-    }
-
-    function closeUndoConfirm() {
-      document.getElementById("undoConfirmModal").classList.remove("show");
-    }
-
-    function confirmUndo() {
-      if (!previousItems) return;
-
-      items = cloneItems(previousItems);
-      previousItems = null;
-      selectedIds.clear();
-      shoppingModeItemIds.clear();
-      editMode = false;
-      shoppingMode = false;
-
-      closeUndoConfirm();
-      saveItems();
-      render();
-    }
-
-    /* =========================================================
-      11. 保存失敗時の再読み込み
-    ========================================================= */
-    function openSaveFailureModal() {
-      if (isSaveFailureModalOpen) return;
-
-      isSaveFailureModalOpen = true;
-      hideToast();
-      resetPullRefreshVisual();
-      document.getElementById("saveFailureModal").classList.add("show");
-    }
-
-    function closeSaveFailureModal() {
-      isSaveFailureModalOpen = false;
-      document.getElementById("saveFailureModal").classList.remove("show");
-    }
-
-    function confirmSaveFailureReload() {
-      closeSaveFailureModal();
-      resetModesAndSelections();
-      render();
-      loadItems({ afterSaveFailure: true });
-    }
-
-    /* =========================================================
-      12. 読み込み失敗
-    ========================================================= */
-    function openLoadFailureModal(message) {
-      if (isLoadFailureModalOpen) return;
-
-      isLoadFailureModalOpen = true;
-      hideToast();
-      resetPullRefreshVisual();
-
-      document.getElementById("loadFailureMessage").textContent = message;
-      document.getElementById("loadFailureModal").classList.add("show");
-    }
-
-    function closeLoadFailureModal() {
-      isLoadFailureModalOpen = false;
-      document.getElementById("loadFailureModal").classList.remove("show");
-    }
-
-    /* =========================================================
-      13. 初期実行
-    ========================================================= */
-    setupPullToRefresh();
-    loadItems();
-
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js");
-    }
-  </script>
-</body>
-</html>
+     
