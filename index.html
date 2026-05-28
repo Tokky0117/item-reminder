@@ -23,6 +23,8 @@
       --edit-header-color: #e1f0ff;
       --shopping-bg-color: #fff7e8;
       --shopping-header-color: #fff0d8;
+      --shopping-accent-color: #a55a00;
+      --shopping-button-bg: rgba(165, 90, 0, 0.14);
     }
 
     body {
@@ -156,6 +158,7 @@
       height: 36px;
       padding: 0 8px;
       border-radius: 10px;
+      transition: background 0.18s ease, color 0.18s ease;
     }
 
     .shopping-button {
@@ -171,6 +174,11 @@
     .shopping-button.active,
     .edit-button.active {
       background: rgba(0,122,255,0.12);
+    }
+
+    .app.shopping-mode .shopping-button.active {
+      background: var(--shopping-button-bg);
+      color: var(--shopping-accent-color);
     }
 
     .shopping-button:disabled,
@@ -551,8 +559,27 @@
       box-shadow: 0 3px 10px rgba(0,0,0,0.16);
     }
 
+    .purchase-complete-button {
+      display: none;
+      margin-left: auto;
+      width: 112px;
+      height: 54px;
+      border: none;
+      border-radius: 16px;
+      background: var(--shopping-accent-color);
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      flex-shrink: 0;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.16);
+    }
+
     .app.edit-mode .add-button,
     .app.edit-mode .delete-footer-button {
+      display: block;
+    }
+
+    .app.shopping-mode .purchase-complete-button {
       display: block;
     }
 
@@ -691,6 +718,10 @@
       background: var(--danger-color);
     }
 
+    .confirm-button.shopping {
+      background: var(--shopping-accent-color);
+    }
+
     .confirm-button:disabled {
       background: #c8c8c8;
       color: #777;
@@ -736,6 +767,7 @@
       </button>
       <button class="add-button" id="addButton" onclick="openAddModal()" aria-label="日用品を追加">＋ 追加</button>
       <button class="delete-footer-button" id="deleteFooterButton" onclick="openDeleteConfirm()" aria-label="選択項目を削除">削除</button>
+      <button class="purchase-complete-button" id="purchaseCompleteButton" onclick="openPurchaseConfirm()" aria-label="購入確定">購入確定</button>
     </div>
   </div>
 
@@ -787,6 +819,17 @@
       <div class="modal-actions">
         <button class="cancel-button" onclick="closeDeleteConfirm()">いいえ</button>
         <button class="confirm-button danger" onclick="confirmDeleteItems()">はい</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="purchaseConfirmModal">
+    <div class="modal">
+      <h2>購入確認</h2>
+      <div class="confirm-message">購入を完了しますか？</div>
+      <div class="modal-actions">
+        <button class="cancel-button" onclick="closePurchaseConfirm()">いいえ</button>
+        <button class="confirm-button shopping" onclick="confirmPurchaseComplete()">はい</button>
       </div>
     </div>
   </div>
@@ -1562,12 +1605,44 @@
     function confirmUndo() {
       if (!previousItems) return;
 
+      const wasEditMode = editMode;
+      const wasShoppingMode = shoppingMode;
+      const previousShoppingModeItemIds = new Set(shoppingModeItemIds);
+
       items = cloneItems(previousItems);
       previousItems = null;
       selectedIds.clear();
-      shoppingModeItemIds.clear();
-      editMode = false;
+
+      editMode = wasEditMode;
+      shoppingMode = wasShoppingMode;
+
+      if (shoppingMode) {
+        shoppingModeItemIds = previousShoppingModeItemIds;
+      } else {
+        shoppingModeItemIds.clear();
+      }
+
+      saveItems();
+      render();
+    }
+
+    function openPurchaseConfirm() {
+      if (!shoppingMode) return;
+      document.getElementById("purchaseConfirmModal").classList.add("show");
+    }
+
+    function closePurchaseConfirm() {
+      document.getElementById("purchaseConfirmModal").classList.remove("show");
+    }
+
+    function confirmPurchaseComplete() {
+      closePurchaseConfirm();
+
       shoppingMode = false;
+      shoppingModeItemIds.clear();
+      selectedIds.clear();
+      clearPreviousItems();
+      resetPullRefreshVisual();
 
       saveItems();
       render();
