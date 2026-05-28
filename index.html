@@ -202,7 +202,9 @@
     }
 
     .app.edit-mode .shopping-button,
-    .app.edit-mode .edit-button {
+    .app.edit-mode .edit-button,
+    .app.shopping-mode .shopping-button,
+    .app.shopping-mode .edit-button {
       display: none;
     }
 
@@ -589,6 +591,14 @@
       box-shadow: 0 3px 10px rgba(0,0,0,0.16);
     }
 
+    .edit-complete-button:disabled,
+    .purchase-complete-button:disabled {
+      background: #c8c8c8;
+      color: #777;
+      box-shadow: none;
+      opacity: 1;
+    }
+
     .app.edit-mode .home-button,
     .app.shopping-mode .home-button {
       display: flex;
@@ -604,9 +614,9 @@
 
     .toast {
       position: fixed;
+      top: calc(12px + env(safe-area-inset-top));
       left: 50%;
-      bottom: calc(92px + env(safe-area-inset-bottom));
-      transform: translate(-50%, 12px);
+      transform: translate(-50%, -12px);
       max-width: calc(100vw - 40px);
       padding: 9px 14px;
       border-radius: 999px;
@@ -791,8 +801,8 @@
         </svg>
       </button>
 
-      <button class="edit-complete-button" id="editCompleteButton" onclick="completeEditMode()" aria-label="編集完了">編集完了</button>
-      <button class="purchase-complete-button" id="purchaseCompleteButton" onclick="openPurchaseConfirm()" aria-label="購入確定">購入確定</button>
+      <button class="edit-complete-button" id="editCompleteButton" onclick="completeEditMode()" aria-label="編集完了" disabled>編集完了</button>
+      <button class="purchase-complete-button" id="purchaseCompleteButton" onclick="openPurchaseConfirm()" aria-label="購入確定" disabled>購入確定</button>
     </div>
   </div>
 
@@ -862,7 +872,7 @@
   <div class="modal-backdrop" id="homeCancelConfirmModal">
     <div class="modal">
       <h2>確認</h2>
-      <div class="confirm-message">変更をキャンセルして通常モードに戻りますか？</div>
+      <div class="confirm-message" id="homeCancelConfirmMessage">変更をキャンセルして通常モードに戻りますか？</div>
       <div class="modal-actions">
         <button class="cancel-button" onclick="closeHomeCancelConfirm()">いいえ</button>
         <button class="confirm-button" onclick="confirmHomeCancel()">はい</button>
@@ -974,6 +984,15 @@
       return JSON.parse(JSON.stringify(sourceItems));
     }
 
+    function areItemsSame(a, b) {
+      return JSON.stringify(a || []) === JSON.stringify(b || []);
+    }
+
+    function hasModeChanges() {
+      if (!modeStartItems) return false;
+      return !areItemsSame(items, modeStartItems);
+    }
+
     function rememberPreviousItems() {
       previousItems = cloneItems(items);
       updateUndoButton();
@@ -988,6 +1007,20 @@
       const button = document.getElementById("undoButton");
       if (!button) return;
       button.disabled = !previousItems;
+    }
+
+    function updateActionButtons() {
+      const editCompleteButton = document.getElementById("editCompleteButton");
+      const purchaseCompleteButton = document.getElementById("purchaseCompleteButton");
+      const hasChanges = hasModeChanges();
+
+      if (editCompleteButton) {
+        editCompleteButton.disabled = !hasChanges;
+      }
+
+      if (purchaseCompleteButton) {
+        purchaseCompleteButton.disabled = !hasChanges;
+      }
     }
 
     function escapeHtml(text) {
@@ -1119,6 +1152,8 @@
     }
 
     async function commitModeAndExit(successMessage) {
+      if (!hasModeChanges()) return;
+
       try {
         await saveItemsToServer();
 
@@ -1139,9 +1174,21 @@
       }
     }
 
+    function exitModeWithoutSaving() {
+      editMode = false;
+      shoppingMode = false;
+      selectedIds.clear();
+      shoppingModeItemIds.clear();
+      modeStartItems = null;
+      clearPreviousItems();
+      resetPullRefreshVisual();
+      render();
+    }
+
     function render() {
       updateAppModeClasses();
       updateUndoButton();
+      updateActionButtons();
 
       const container = document.getElementById("items");
       const previousScrollTop = container.scrollTop;
@@ -1165,6 +1212,7 @@
 
       restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll);
       updatePullRefreshVisual();
+      updateActionButtons();
     }
 
     function updateAppModeClasses() {
@@ -1680,7 +1728,7 @@
     }
 
     function openPurchaseConfirm() {
-      if (!shoppingMode) return;
+      if (!shoppingMode || !hasModeChanges()) return;
       document.getElementById("purchaseConfirmModal").classList.add("show");
     }
 
@@ -1695,6 +1743,19 @@
 
     function openHomeCancelConfirm() {
       if (!editMode && !shoppingMode) return;
+
+      if (!hasModeChanges()) {
+        exitModeWithoutSaving();
+        return;
+      }
+
+      const message = document.getElementById("homeCancelConfirmMessage");
+      if (message) {
+        message.textContent = editMode
+          ? "編集をすべてキャンセルしますか？"
+          : "変更をキャンセルして通常モードに戻りますか？";
+      }
+
       document.getElementById("homeCancelConfirmModal").classList.add("show");
     }
 
@@ -1709,14 +1770,7 @@
         items = cloneItems(modeStartItems);
       }
 
-      editMode = false;
-      shoppingMode = false;
-      selectedIds.clear();
-      shoppingModeItemIds.clear();
-      modeStartItems = null;
-      clearPreviousItems();
-      resetPullRefreshVisual();
-      render();
+      exitModeWithoutSaving();
     }
 
     function openUpdateRetryModal() {
