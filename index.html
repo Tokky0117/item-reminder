@@ -744,7 +744,8 @@
       margin-bottom: 5px;
     }
 
-    .modal input[type="text"] {
+    .modal input[type="text"],
+    .modal select {
       width: 100%;
       padding: 8px;
       border-radius: 8px;
@@ -752,6 +753,7 @@
       font-size: 16px;
       min-width: 0;
       box-sizing: border-box;
+      background: white;
     }
 
     .owner-options {
@@ -891,6 +893,18 @@
       </div>
 
       <div class="field">
+        <label>分類</label>
+        <select id="modalCategory" onchange="setModalCategory(this.value)">
+          <option value="">未選択</option>
+          <option value="food">飲食</option>
+          <option value="kitchen">キッチン</option>
+          <option value="bath">洗面・お風呂</option>
+          <option value="cleaning">洗濯・掃除</option>
+          <option value="other">その他</option>
+        </select>
+      </div>
+
+      <div class="field">
         <label>日用品名</label>
         <input
           id="modalName"
@@ -1006,6 +1020,14 @@
       { key: "all", full: "すべて", short: "全" }
     ];
 
+    const CATEGORY_LABELS = [
+      { key: "food", name: "飲食" },
+      { key: "kitchen", name: "キッチン" },
+      { key: "bath", name: "洗面・お風呂" },
+      { key: "cleaning", name: "洗濯・掃除" },
+      { key: "other", name: "その他" }
+    ];
+
     let items = [];
     let saveTimer = null;
     let toastTimer = null;
@@ -1021,16 +1043,17 @@
     let modalMode = "add";
     let editingItemId = null;
     let modalIcon = "共";
+    let modalCategory = "";
 
     let previousItems = null;
     let modeStartItems = null;
     let pendingUpdateAction = null;
     let pendingConflictAction = null;
     let serverVersion = 0;
-    
+
     let isImmediateSaveRunning = false;
     let immediateSaveQueued = false;
-    
+
     let isRefreshing = false;
     let itemsScrollInitialized = false;
     let isInitialLoading = true;
@@ -1139,6 +1162,31 @@
       });
     }
 
+    function getCategoryOrder(category) {
+      const index = CATEGORY_LABELS.findIndex(label => label.key === category);
+      return index >= 0 ? index : CATEGORY_LABELS.length - 1;
+    }
+
+    function sortItemsByCategory(sourceItems) {
+      return sourceItems
+        .map(item => ({
+          item: item,
+          originalIndex: items.findIndex(baseItem => baseItem.id === item.id)
+        }))
+        .sort((a, b) => {
+          const categoryDiff =
+            getCategoryOrder(a.item.category || "other") -
+            getCategoryOrder(b.item.category || "other");
+
+          if (categoryDiff !== 0) {
+            return categoryDiff;
+          }
+
+          return a.originalIndex - b.originalIndex;
+        })
+        .map(entry => entry.item);
+    }
+
     function rememberPreviousItems() {
       previousItems = cloneItems(items);
       updateUndoButton();
@@ -1197,7 +1245,8 @@
         name: item.name || "",
         hasSpare: item.hasSpare === true || item.hasSpare === "TRUE",
         note: item.note || "",
-        icon: item.icon || "共"
+        icon: item.icon || "共",
+        category: item.category || "other"
       }));
     }
 
@@ -1346,16 +1395,16 @@
         immediateSaveQueued = true;
         return;
       }
-    
+
       isImmediateSaveRunning = true;
-    
+
       try {
         while (true) {
           immediateSaveQueued = false;
-    
+
           const result = await saveItemsToServer({ force: force });
           force = false;
-    
+
           if (isOkResult(result)) {
             applySaveSuccess(result);
           } else if (isConflictResult(result)) {
@@ -1365,7 +1414,7 @@
           } else {
             throw new Error(result && result.message ? result.message : "保存に失敗しました");
           }
-    
+
           if (!immediateSaveQueued) {
             break;
           }
@@ -1378,6 +1427,7 @@
         isImmediateSaveRunning = false;
       }
     }
+
     async function commitModeAndExit(successMessage, force = false) {
       if (!hasModeChanges()) return;
 
@@ -1643,15 +1693,17 @@
     }
 
     function getDisplayItems() {
+      let displayItems = [];
+
       if (shoppingMode) {
-        return items.filter(item => shoppingModeItemIds.has(item.id));
+        displayItems = items.filter(item => shoppingModeItemIds.has(item.id));
+      } else if (activeOwnerTab === "all") {
+        displayItems = items;
+      } else {
+        displayItems = items.filter(item => item.icon === activeOwnerTab);
       }
 
-      if (activeOwnerTab === "all") {
-        return items;
-      }
-
-      return items.filter(item => item.icon === activeOwnerTab);
+      return sortItemsByCategory(displayItems);
     }
 
     function renderEmptyShoppingMessage(container) {
@@ -1836,8 +1888,10 @@
       modalMode = "add";
       editingItemId = null;
       modalIcon = "共";
+      modalCategory = "";
 
       document.getElementById("itemModalTitle").textContent = "日用品を追加";
+      document.getElementById("modalCategory").value = "";
       document.getElementById("modalName").value = "";
       document.getElementById("modalNote").value = "";
       document.getElementById("modalConfirm").disabled = true;
@@ -1857,8 +1911,10 @@
       modalMode = "edit";
       editingItemId = id;
       modalIcon = item.icon || "共";
+      modalCategory = item.category || "other";
 
       document.getElementById("itemModalTitle").textContent = "日用品を編集";
+      document.getElementById("modalCategory").value = modalCategory;
       document.getElementById("modalName").value = item.name || "";
       document.getElementById("modalNote").value = item.note || "";
       document.getElementById("modalConfirm").disabled = !(item.name || "").trim();
@@ -1878,6 +1934,10 @@
     function setModalIcon(icon) {
       modalIcon = icon;
       updateModalOwnerButtons();
+    }
+
+    function setModalCategory(category) {
+      modalCategory = category;
     }
 
     function updateModalOwnerButtons() {
@@ -1917,7 +1977,8 @@
         name: name,
         hasSpare: false,
         note: note,
-        icon: modalIcon
+        icon: modalIcon,
+        category: modalCategory || "other"
       });
     }
 
@@ -1928,7 +1989,8 @@
             ...item,
             name: name,
             note: note,
-            icon: modalIcon
+            icon: modalIcon,
+            category: modalCategory || "other"
           };
         }
 
