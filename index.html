@@ -224,6 +224,67 @@
       display: block;
     }
 
+    .owner-tabs {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .app.shopping-mode .owner-tabs {
+      display: none;
+    }
+
+    .owner-tab {
+      flex: 1;
+      min-width: 0;
+      height: 34px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,0.06);
+      font-size: 13px;
+      font-weight: bold;
+      padding: 0 8px;
+      transition: flex 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .owner-tab:active {
+      transform: scale(0.98);
+    }
+
+    .owner-tab.active {
+      flex: 1.8;
+      border-width: 2px;
+      box-shadow: 0 2px 7px rgba(0,0,0,0.12);
+    }
+
+    .owner-tab.stock-ok {
+      background: #e5f7ea;
+      color: #167a35;
+      border-color: rgba(22,122,53,0.24);
+    }
+
+    .owner-tab.stock-ng {
+      background: #fff0df;
+      color: #a55a00;
+      border-color: rgba(165,90,0,0.28);
+    }
+
+    .owner-tab.empty {
+      background: #eeeeee;
+      color: #777;
+      border-color: rgba(0,0,0,0.06);
+    }
+
+    .owner-tab.active.stock-ok {
+      border-color: #43a85f;
+    }
+
+    .owner-tab.active.stock-ng {
+      border-color: #c97916;
+    }
+
     #items {
       flex: 1;
       min-height: 0;
@@ -240,19 +301,16 @@
     }
 
     #items .row,
-    #items .group-header-row,
     #items .empty-list-message {
       transform: translateY(var(--pull-content-offset, 0px));
     }
 
     #items.pull-moving .row,
-    #items.pull-moving .group-header-row,
     #items.pull-moving .empty-list-message {
       transition: none;
     }
 
     #items.pull-settling .row,
-    #items.pull-settling .group-header-row,
     #items.pull-settling .empty-list-message {
       transition: transform 0.22s ease;
     }
@@ -309,59 +367,6 @@
     @keyframes spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
-    }
-
-    .group-header-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 2px;
-    }
-
-    .group-header-spacer {
-      width: 30px;
-      flex-shrink: 0;
-      display: none;
-    }
-
-    .app.edit-mode .group-header-spacer {
-      display: block;
-    }
-
-    .group-header-button {
-      width: 100%;
-      min-height: 42px;
-      border: none;
-      border-radius: 12px;
-      padding: 6px 10px;
-      background: rgba(255,255,255,0.78);
-      color: #222;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-      box-sizing: border-box;
-      text-align: left;
-    }
-
-    .group-header-title {
-      font-size: 14px;
-      font-weight: bold;
-    }
-
-    .group-header-count {
-      font-size: 12px;
-      color: #666;
-      margin-left: auto;
-      white-space: nowrap;
-    }
-
-    .group-header-arrow {
-      width: 18px;
-      text-align: center;
-      font-size: 14px;
-      color: #666;
-      flex-shrink: 0;
     }
 
     .row {
@@ -501,27 +506,14 @@
     .icon-button {
       width: 34px;
       height: 34px;
-      border: none;
+      border: 1px solid #d1d1d6;
       border-radius: 50%;
+      background: #f2f2f7;
+      color: #333;
       font-weight: bold;
       font-size: 15px;
       flex-shrink: 0;
       padding: 0;
-    }
-
-    .icon-ka {
-      background: #b86b4b;
-      color: white;
-    }
-
-    .icon-mi {
-      background: #c8b6ff;
-      color: #333;
-    }
-
-    .icon-kyo {
-      background: #c99a2e;
-      color: white;
     }
 
     .item-edit-button {
@@ -856,6 +848,8 @@
         <button class="edit-button" onclick="toggleEditMode()" aria-label="編集">編集</button>
         <button class="edit-add-top-button" onclick="openAddModal()" aria-label="日用品を追加">＋追加</button>
       </div>
+
+      <div class="owner-tabs" id="ownerTabs" aria-label="担当タブ"></div>
     </div>
 
     <div id="items"></div>
@@ -993,7 +987,13 @@
     const REFRESH_OFFSET = 56;
     const PULL_TRIGGER_DISTANCE = 72;
     const PULL_MAX_DISTANCE = 96;
-    const GROUP_ORDER = ["共", "み", "か"];
+
+    const OWNER_TABS = [
+      { key: "共", full: "共同", short: "共" },
+      { key: "み", full: "みゆう", short: "み" },
+      { key: "か", full: "かずまさ", short: "か" },
+      { key: "all", full: "すべて", short: "全" }
+    ];
 
     let items = [];
     let saveTimer = null;
@@ -1005,11 +1005,7 @@
     let selectedIds = new Set();
     let shoppingModeItemIds = new Set();
 
-    let collapsedGroups = {
-      "共": false,
-      "み": false,
-      "か": false
-    };
+    let activeOwnerTab = "all";
 
     let modalMode = "add";
     let editingItemId = null;
@@ -1082,17 +1078,49 @@
       return !areItemsSame(items, modeStartItems);
     }
 
-    function expandAllGroups() {
-      collapsedGroups = {
-        "共": false,
-        "み": false,
-        "か": false
-      };
+    function setOwnerTab(tabKey) {
+      activeOwnerTab = tabKey;
+      render();
     }
 
-    function toggleGroup(icon) {
-      collapsedGroups[icon] = !collapsedGroups[icon];
-      render();
+    function getItemsForOwnerTab(tabKey) {
+      if (tabKey === "all") {
+        return items;
+      }
+
+      return items.filter(item => item.icon === tabKey);
+    }
+
+    function getOwnerTabStockClass(tabKey) {
+      const targetItems = getItemsForOwnerTab(tabKey);
+
+      if (targetItems.length === 0) {
+        return "empty";
+      }
+
+      const hasNoStock = targetItems.some(item => !item.hasSpare);
+      return hasNoStock ? "stock-ng" : "stock-ok";
+    }
+
+    function renderOwnerTabs() {
+      const tabContainer = document.getElementById("ownerTabs");
+      if (!tabContainer) return;
+
+      tabContainer.innerHTML = "";
+
+      OWNER_TABS.forEach(tab => {
+        const button = document.createElement("button");
+        const isActive = activeOwnerTab === tab.key;
+        const stockClass = getOwnerTabStockClass(tab.key);
+
+        button.type = "button";
+        button.className = `owner-tab ${stockClass} ${isActive ? "active" : ""}`;
+        button.textContent = isActive ? tab.full : tab.short;
+        button.setAttribute("aria-label", tab.full);
+        button.onclick = () => setOwnerTab(tab.key);
+
+        tabContainer.appendChild(button);
+      });
     }
 
     function rememberPreviousItems() {
@@ -1134,9 +1162,7 @@
     }
 
     function getIconClass(icon) {
-      if (icon === "か") return "icon-ka";
-      if (icon === "み") return "icon-mi";
-      return "icon-kyo";
+      return "icon-neutral";
     }
 
     function getOwnerName(icon) {
@@ -1289,6 +1315,7 @@
 
     function render() {
       updateAppModeClasses();
+      renderOwnerTabs();
       updateUndoButton();
       updateActionButtons();
 
@@ -1313,58 +1340,13 @@
         return;
       }
 
-      if (shoppingMode) {
-        displayItems.forEach(item => {
-          container.appendChild(createItemRow(item));
-        });
-      } else {
-        renderGroupedItems(container, displayItems);
-      }
+      displayItems.forEach(item => {
+        container.appendChild(createItemRow(item));
+      });
 
       restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll);
       updatePullRefreshVisual();
       updateActionButtons();
-    }
-
-    function renderGroupedItems(container, displayItems) {
-      GROUP_ORDER.forEach(icon => {
-        const groupItems = displayItems.filter(item => item.icon === icon);
-        if (groupItems.length === 0) return;
-
-        container.appendChild(createGroupHeader(icon, groupItems.length));
-
-        if (!collapsedGroups[icon]) {
-          groupItems.forEach(item => {
-            container.appendChild(createItemRow(item));
-          });
-        }
-      });
-    }
-
-    function createGroupHeader(icon, count) {
-      const row = document.createElement("div");
-      row.className = "group-header-row";
-
-      const arrow = collapsedGroups[icon] ? "›" : "⌄";
-
-      row.innerHTML = `
-        <div class="group-header-spacer"></div>
-        <button class="group-header-button" type="button" onclick="toggleGroup('${icon}')" aria-label="${getOwnerName(icon)}を展開または収納">
-          <button
-            class="icon-button ${getIconClass(icon)}"
-            type="button"
-            tabindex="-1"
-            aria-hidden="true"
-          >
-            ${icon}
-          </button>
-          <span class="group-header-title">${getOwnerName(icon)}</span>
-          <span class="group-header-count">${count}件</span>
-          <span class="group-header-arrow">${arrow}</span>
-        </button>
-      `;
-
-      return row;
     }
 
     function updateAppModeClasses() {
@@ -1549,11 +1531,15 @@
     }
 
     function getDisplayItems() {
-      if (!shoppingMode) {
+      if (shoppingMode) {
+        return items.filter(item => shoppingModeItemIds.has(item.id));
+      }
+
+      if (activeOwnerTab === "all") {
         return items;
       }
 
-      return items.filter(item => shoppingModeItemIds.has(item.id));
+      return items.filter(item => item.icon === activeOwnerTab);
     }
 
     function renderEmptyShoppingMessage(container) {
@@ -1566,7 +1552,13 @@
     function renderEmptyListMessage(container) {
       const empty = document.createElement("div");
       empty.className = "empty-list-message";
-      empty.textContent = "日用品はありません";
+
+      if (activeOwnerTab === "all") {
+        empty.textContent = "日用品はありません";
+      } else {
+        empty.textContent = getOwnerName(activeOwnerTab) + "の日用品はありません";
+      }
+
       container.appendChild(empty);
     }
 
@@ -1692,7 +1684,6 @@
       selectedIds.clear();
       modeStartItems = cloneItems(items);
       clearPreviousItems();
-      expandAllGroups();
       resetPullRefreshVisual();
       render();
     }
