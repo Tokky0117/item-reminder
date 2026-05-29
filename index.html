@@ -301,18 +301,30 @@
     }
 
     #items .row,
+    #items .category-heading,
     #items .empty-list-message {
       transform: translateY(var(--pull-content-offset, 0px));
     }
 
     #items.pull-moving .row,
+    #items.pull-moving .category-heading,
     #items.pull-moving .empty-list-message {
       transition: none;
     }
 
     #items.pull-settling .row,
+    #items.pull-settling .category-heading,
     #items.pull-settling .empty-list-message {
       transition: transform 0.22s ease;
+    }
+
+    .category-heading {
+      padding: 7px 5px 0;
+      font-size: 12px;
+      font-weight: bold;
+      color: #777;
+      line-height: 1.1;
+      letter-spacing: 0.03em;
     }
 
     .pull-refresh {
@@ -1167,6 +1179,11 @@
       return index >= 0 ? index : CATEGORY_LABELS.length - 1;
     }
 
+    function getCategoryName(category) {
+      const label = CATEGORY_LABELS.find(label => label.key === category);
+      return label ? label.name : "その他";
+    }
+
     function sortItemsByCategory(sourceItems) {
       return sourceItems
         .map(item => ({
@@ -1502,7 +1519,16 @@
         return;
       }
 
+      let previousCategory = null;
+
       displayItems.forEach(item => {
+        const currentCategory = item.category || "other";
+
+        if (currentCategory !== previousCategory) {
+          container.appendChild(createCategoryHeading(currentCategory));
+          previousCategory = currentCategory;
+        }
+
         container.appendChild(createItemRow(item));
       });
 
@@ -1704,6 +1730,13 @@
       }
 
       return sortItemsByCategory(displayItems);
+    }
+
+    function createCategoryHeading(category) {
+      const heading = document.createElement("div");
+      heading.className = "category-heading";
+      heading.textContent = getCategoryName(category || "other");
+      return heading;
     }
 
     function renderEmptyShoppingMessage(container) {
