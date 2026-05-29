@@ -117,6 +117,17 @@
       position: relative;
     }
 
+    .title-center {
+      max-width: calc(100vw - 150px);
+      min-width: 0;
+      text-align: center;
+      border: none;
+      background: transparent;
+      padding: 0;
+      margin: 0;
+      color: inherit;
+    }
+
     h1 {
       text-align: center;
       font-size: 24px;
@@ -567,7 +578,6 @@
 
     .edit-complete-button {
       display: none;
-      flex: 1;
       height: 54px;
       border: none;
       border-radius: 16px;
@@ -580,7 +590,6 @@
 
     .purchase-complete-button {
       display: none;
-      flex: 1;
       height: 54px;
       border: none;
       border-radius: 16px;
@@ -599,17 +608,22 @@
       opacity: 1;
     }
 
+    .app.edit-mode .undo-button,
     .app.edit-mode .home-button,
-    .app.shopping-mode .home-button {
-      display: flex;
-    }
-
-    .app.edit-mode .edit-complete-button {
-      display: block;
-    }
-
+    .app.edit-mode .edit-complete-button,
+    .app.shopping-mode .undo-button,
+    .app.shopping-mode .home-button,
     .app.shopping-mode .purchase-complete-button {
-      display: block;
+      display: flex;
+      flex: 1;
+      width: auto;
+      min-width: 0;
+    }
+
+    .app.edit-mode .edit-complete-button,
+    .app.shopping-mode .purchase-complete-button {
+      align-items: center;
+      justify-content: center;
     }
 
     .toast {
@@ -755,6 +769,7 @@
       font-size: 16px;
       line-height: 1.6;
       margin: 8px 0 18px;
+      white-space: pre-line;
     }
 
     #loadFailureMessage {
@@ -775,12 +790,14 @@
         <button class="shopping-button" onclick="toggleShoppingMode()" aria-label="買いものリスト">買いもの</button>
         <button class="edit-delete-top-button" onclick="openDeleteConfirm()" aria-label="選択項目を削除">削除</button>
 
-        <h1 id="appTitle">日用品リスト</h1>
+        <button class="title-center" onclick="openModeHelp()" aria-label="ヘルプを表示">
+          <h1 id="appTitle">日用品リスト</h1>
+          <div class="mode-label" id="modeLabel"></div>
+        </button>
 
         <button class="edit-button" onclick="toggleEditMode()" aria-label="編集">編集</button>
         <button class="edit-add-top-button" onclick="openAddModal()" aria-label="日用品を追加">＋追加</button>
       </div>
-      <div class="mode-label" id="modeLabel"></div>
     </div>
 
     <div id="items"></div>
@@ -876,6 +893,16 @@
       <div class="modal-actions">
         <button class="cancel-button" onclick="closeHomeCancelConfirm()">いいえ</button>
         <button class="confirm-button" onclick="confirmHomeCancel()">はい</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modeHelpModal">
+    <div class="modal">
+      <h2 id="modeHelpTitle">ヘルプ</h2>
+      <div class="confirm-message" id="modeHelpMessage"></div>
+      <div class="modal-actions">
+        <button class="confirm-button" onclick="closeModeHelp()">OK</button>
       </div>
     </div>
   </div>
@@ -1753,7 +1780,7 @@
       if (message) {
         message.textContent = editMode
           ? "編集をすべてキャンセルしますか？"
-          : "変更をキャンセルして通常モードに戻りますか？";
+          : "購入をキャンセルしますか？";
       }
 
       document.getElementById("homeCancelConfirmModal").classList.add("show");
@@ -1771,6 +1798,33 @@
       }
 
       exitModeWithoutSaving();
+    }
+
+    function openModeHelp() {
+      const title = document.getElementById("modeHelpTitle");
+      const message = document.getElementById("modeHelpMessage");
+
+      if (!title || !message) return;
+
+      if (editMode) {
+        title.textContent = "編集モード";
+        message.textContent =
+          "項目の追加・編集・削除ができます。\n編集完了で保存、ホームでキャンセルします。";
+      } else if (shoppingMode) {
+        title.textContent = "買いものモード";
+        message.textContent =
+          "予備なしの項目だけを表示します。\n購入したら「購入」に変え、購入確定で保存します。";
+      } else {
+        title.textContent = "日用品リスト";
+        message.textContent =
+          "予備の有無を確認・変更できます。\n買いものは予備なしだけを表示します。";
+      }
+
+      document.getElementById("modeHelpModal").classList.add("show");
+    }
+
+    function closeModeHelp() {
+      document.getElementById("modeHelpModal").classList.remove("show");
     }
 
     function openUpdateRetryModal() {
