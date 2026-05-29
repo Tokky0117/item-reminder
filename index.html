@@ -970,6 +970,17 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="conflictModal">
+    <div class="modal">
+      <h2>更新確認</h2>
+      <div class="confirm-message">他の人がリストを更新しています。<br>どちらを反映しますか？</div>
+      <div class="modal-actions">
+        <button class="cancel-button" onclick="loadLatestFromConflict()">最新を読み込む</button>
+        <button class="confirm-button" onclick="forcePendingConflictSave()">自分の変更で更新</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="loadFailureModal">
     <div class="modal">
       <h2>読み込み失敗</h2>
@@ -1014,6 +1025,8 @@
     let previousItems = null;
     let modeStartItems = null;
     let pendingUpdateAction = null;
+    let pendingConflictAction = null;
+    let serverVersion = 0;
 
     let isRefreshing = false;
     let itemsScrollInitialized = false;
@@ -1201,6 +1214,7 @@
 
     function loadItems(options = {}) {
       const fromPull = options.fromPull === true;
+      const afterLoadMessage = options.afterLoadMessage || "";
 
       if (fromPull && (shoppingMode || editMode)) {
         resetPullRefreshVisual();
@@ -1216,8 +1230,14 @@
 
       const callbackName = "loadItemsCallback_" + Date.now();
 
-      window[callbackName] = function(data) {
-        items = normalizeItems(data);
+      window[callbackName] = function(response) {
+        const loadedItems = Array.isArray(response) ? response : (response.items || []);
+
+        if (!Array.isArray(response) && response.version !== undefined) {
+          serverVersion = Number(response.version) || 0;
+        }
+
+        items = normalizeItems(loadedItems);
         selectedIds.clear();
 
         if (!shoppingMode) {
@@ -1228,6 +1248,10 @@
         render();
         hideStartupScreen();
 
+        if (afterLoadMessage) {
+          showToast(afterLoadMessage);
+        }
+
         if (fromPull) {
           finishPullRefresh();
         }
@@ -1237,7 +1261,7 @@
       };
 
       const script = document.createElement("script");
-      script.src = WEB_APP_URL + "?callback=" + callbackName;
+      script.src = WEB_APP_URL + "?callback=" + encodeURIComponent(callbackName);
 
       script.onerror = function() {
         hideStartupScreen();
@@ -1255,49 +1279,120 @@
       document.body.appendChild(script);
     }
 
-    async function saveItemsToServer() {
-      await fetch(WEB_APP_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-          "Content-Type": "text/plain"
-        },
-        body: JSON.stringify({
+    function requestJsonp(params) {
+      return new Promise((resolve, reject) => {
+        const callbackName = "jsonpCallback_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+        const script = document.createElement("script");
+
+        const query = new URLSearchParams();
+        query.set("callback", callbackName);
+
+        Object.keys(params).forEach(key => {
+          query.set(key, params[key]);
+        });
+
+        window[callbackName] = function(response) {
+          delete window[callbackName];
+          script.remove();
+          resolve(response);
+        };
+
+        script.onerror = function() {
+          delete window[callbackName];
+          script.remove();
+          reject(new Error("通信に失敗しました"));
+        };
+
+        script.src = WEB_APP_URL + "?" + query.toString();
+        document.body.appendChild(script);
+      });
+    }
+
+    async function saveItemsToServer(options = {}) {
+      const force = options.force === true;
+
+      return requestJsonp({
+        action: "saveAll",
+        baseVersion: String(serverVersion || 0),
+        force: force ? "true" : "false",
+        payload: JSON.stringify({
           action: "saveAll",
+          baseVersion: serverVersion || 0,
+          force: force,
           items: items
         })
       });
     }
 
-    async function saveImmediateChange() {
+    function isConflictResult(result) {
+      return result && result.status === "conflict";
+    }
+
+    function isOkResult(result) {
+      return result && result.status === "ok";
+    }
+
+    function applySaveSuccess(result) {
+      if (result && result.version !== undefined) {
+        serverVersion = Number(result.version) || serverVersion;
+      }
+    }
+
+    async function saveImmediateChange(force = false) {
       try {
-        await saveItemsToServer();
+        const result = await saveItemsToServer({ force: force });
+
+        if (isOkResult(result)) {
+          applySaveSuccess(result);
+          return;
+        }
+
+        if (isConflictResult(result)) {
+          pendingConflictAction = () => saveImmediateChange(true);
+          openConflictModal();
+          return;
+        }
+
+        throw new Error(result && result.message ? result.message : "保存に失敗しました");
       } catch (error) {
         console.error(error);
-        pendingUpdateAction = saveImmediateChange;
+        pendingUpdateAction = () => saveImmediateChange(force);
         openUpdateRetryModal();
       }
     }
 
-    async function commitModeAndExit(successMessage) {
+    async function commitModeAndExit(successMessage, force = false) {
       if (!hasModeChanges()) return;
 
       try {
-        await saveItemsToServer();
+        const result = await saveItemsToServer({ force: force });
 
-        editMode = false;
-        shoppingMode = false;
-        selectedIds.clear();
-        shoppingModeItemIds.clear();
-        modeStartItems = null;
-        clearPreviousItems();
-        resetPullRefreshVisual();
-        render();
+        if (isOkResult(result)) {
+          applySaveSuccess(result);
 
-        showToast(successMessage);
+          editMode = false;
+          shoppingMode = false;
+          selectedIds.clear();
+          shoppingModeItemIds.clear();
+          modeStartItems = null;
+          clearPreviousItems();
+          resetPullRefreshVisual();
+          render();
+
+          showToast(successMessage);
+          return;
+        }
+
+        if (isConflictResult(result)) {
+          pendingConflictAction = () => commitModeAndExit(successMessage, true);
+          openConflictModal();
+          return;
+        }
+
+        throw new Error(result && result.message ? result.message : "保存に失敗しました");
       } catch (error) {
         console.error(error);
-        pendingUpdateAction = () => commitModeAndExit(successMessage);
+        pendingUpdateAction = () => commitModeAndExit(successMessage, force);
         openUpdateRetryModal();
       }
     }
@@ -1967,6 +2062,33 @@
       if (typeof pendingUpdateAction === "function") {
         const action = pendingUpdateAction;
         pendingUpdateAction = null;
+        action();
+      }
+    }
+
+    function openConflictModal() {
+      hideToast();
+      resetPullRefreshVisual();
+      document.getElementById("conflictModal").classList.add("show");
+    }
+
+    function closeConflictModal() {
+      document.getElementById("conflictModal").classList.remove("show");
+    }
+
+    function loadLatestFromConflict() {
+      closeConflictModal();
+      pendingConflictAction = null;
+      resetModesAndSelections();
+      loadItems({ afterLoadMessage: "最新リストを読み込みました" });
+    }
+
+    function forcePendingConflictSave() {
+      closeConflictModal();
+
+      if (typeof pendingConflictAction === "function") {
+        const action = pendingConflictAction;
+        pendingConflictAction = null;
         action();
       }
     }
