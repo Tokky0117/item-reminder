@@ -652,11 +652,6 @@
       transform: translate(-50%, 0);
     }
 
-    /* =========================================================
-      モーダル共通：コンパクト配置ポリシー
-      - 確認/通知/ヘルプ系は詰める
-      - 入力フォームのfield間隔は維持
-    ========================================================= */
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -775,9 +770,10 @@
       font-size: 15px;
       line-height: 1.35;
       margin: 0 0 12px;
-      white-space: pre-line;
+      white-space: normal;
     }
 
+    #modeHelpMessage,
     #loadFailureMessage {
       white-space: pre-line;
     }
@@ -916,10 +912,7 @@
   <div class="modal-backdrop" id="updateRetryModal">
     <div class="modal">
       <h2>更新失敗</h2>
-      <div class="confirm-message">
-        サーバーへの更新に失敗しました。<br>
-        再試行しますか？
-      </div>
+      <div class="confirm-message">サーバーへの更新に失敗しました。<br>再試行しますか？</div>
       <div class="modal-actions">
         <button class="cancel-button" onclick="closeUpdateRetryModal()">閉じる</button>
         <button class="confirm-button" onclick="retryPendingUpdate()">再試行</button>
