@@ -1027,7 +1027,10 @@
     let pendingUpdateAction = null;
     let pendingConflictAction = null;
     let serverVersion = 0;
-
+    
+    let isImmediateSaveRunning = false;
+    let immediateSaveQueued = false;
+    
     let isRefreshing = false;
     let itemsScrollInitialized = false;
     let isInitialLoading = true;
@@ -1339,28 +1342,42 @@
     }
 
     async function saveImmediateChange(force = false) {
+      if (isImmediateSaveRunning) {
+        immediateSaveQueued = true;
+        return;
+      }
+    
+      isImmediateSaveRunning = true;
+    
       try {
-        const result = await saveItemsToServer({ force: force });
-
-        if (isOkResult(result)) {
-          applySaveSuccess(result);
-          return;
+        while (true) {
+          immediateSaveQueued = false;
+    
+          const result = await saveItemsToServer({ force: force });
+          force = false;
+    
+          if (isOkResult(result)) {
+            applySaveSuccess(result);
+          } else if (isConflictResult(result)) {
+            pendingConflictAction = () => saveImmediateChange(true);
+            openConflictModal();
+            return;
+          } else {
+            throw new Error(result && result.message ? result.message : "保存に失敗しました");
+          }
+    
+          if (!immediateSaveQueued) {
+            break;
+          }
         }
-
-        if (isConflictResult(result)) {
-          pendingConflictAction = () => saveImmediateChange(true);
-          openConflictModal();
-          return;
-        }
-
-        throw new Error(result && result.message ? result.message : "保存に失敗しました");
       } catch (error) {
         console.error(error);
         pendingUpdateAction = () => saveImmediateChange(force);
         openUpdateRetryModal();
+      } finally {
+        isImmediateSaveRunning = false;
       }
     }
-
     async function commitModeAndExit(successMessage, force = false) {
       if (!hasModeChanges()) return;
 
