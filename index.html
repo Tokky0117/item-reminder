@@ -631,7 +631,8 @@
       fill: none;
     }
 
-    .undo-button:disabled {
+    .undo-button:disabled,
+    .home-button:disabled {
       color: #aaa;
       opacity: 0.6;
     }
@@ -666,6 +667,29 @@
       color: #777;
       box-shadow: none;
       opacity: 1;
+    }
+
+    .edit-complete-button.saving,
+    .purchase-complete-button.saving {
+      gap: 8px;
+    }
+
+    .button-spinner {
+      width: 17px;
+      height: 17px;
+      border: 2.5px solid rgba(255,255,255,0.45);
+      border-right-color: white;
+      border-radius: 50%;
+      box-sizing: border-box;
+      display: inline-block;
+      animation: spin 0.9s linear infinite;
+      flex-shrink: 0;
+    }
+
+    .edit-complete-button:disabled .button-spinner,
+    .purchase-complete-button:disabled .button-spinner {
+      border-color: rgba(120,120,120,0.28);
+      border-right-color: #777;
     }
 
     .app.edit-mode .undo-button,
@@ -1065,6 +1089,7 @@
 
     let isImmediateSaveRunning = false;
     let immediateSaveQueued = false;
+    let isModeSaving = false;
 
     let isRefreshing = false;
     let itemsScrollInitialized = false;
@@ -1130,6 +1155,7 @@
     }
 
     function setOwnerTab(tabKey) {
+      if (isModeSaving) return;
       activeOwnerTab = tabKey;
       render();
     }
@@ -1168,6 +1194,7 @@
         button.className = `owner-tab ${stockClass} ${isActive ? "active" : ""}`;
         button.textContent = isActive ? tab.full : tab.short;
         button.setAttribute("aria-label", tab.full);
+        button.disabled = isModeSaving;
         button.onclick = () => setOwnerTab(tab.key);
 
         tabContainer.appendChild(button);
@@ -1217,21 +1244,43 @@
     function updateUndoButton() {
       const button = document.getElementById("undoButton");
       if (!button) return;
-      button.disabled = !previousItems;
+      button.disabled = !previousItems || isModeSaving;
+    }
+
+    function getSavingButtonHtml() {
+      return `<span class="button-spinner" aria-hidden="true"></span><span>保存中…</span>`;
     }
 
     function updateActionButtons() {
       const editCompleteButton = document.getElementById("editCompleteButton");
       const purchaseCompleteButton = document.getElementById("purchaseCompleteButton");
+      const homeButton = document.getElementById("homeButton");
       const hasChanges = hasModeChanges();
 
+      if (homeButton) {
+        homeButton.disabled = isModeSaving;
+      }
+
       if (editCompleteButton) {
-        editCompleteButton.disabled = !hasChanges;
+        const isSavingThisButton = isModeSaving && editMode;
+        editCompleteButton.disabled = isModeSaving || !hasChanges;
+        editCompleteButton.classList.toggle("saving", isSavingThisButton);
+        editCompleteButton.innerHTML = isSavingThisButton ? getSavingButtonHtml() : "編集完了";
       }
 
       if (purchaseCompleteButton) {
-        purchaseCompleteButton.disabled = !hasChanges;
+        const isSavingThisButton = isModeSaving && shoppingMode;
+        purchaseCompleteButton.disabled = isModeSaving || !hasChanges;
+        purchaseCompleteButton.classList.toggle("saving", isSavingThisButton);
+        purchaseCompleteButton.innerHTML = isSavingThisButton ? getSavingButtonHtml() : "購入確定";
       }
+    }
+
+    function setModeSaving(saving) {
+      isModeSaving = saving;
+      updateUndoButton();
+      updateActionButtons();
+      renderOwnerTabs();
     }
 
     function escapeHtml(text) {
@@ -1253,6 +1302,7 @@
     }
 
     function showOwnerToast(icon) {
+      if (isModeSaving) return;
       showToast("担当：" + getOwnerName(icon));
     }
 
@@ -1272,6 +1322,7 @@
       shoppingModeItemIds.clear();
       editMode = false;
       shoppingMode = false;
+      isModeSaving = false;
       modeStartItems = null;
       clearPreviousItems();
       resetPullRefreshVisual();
@@ -1447,6 +1498,9 @@
 
     async function commitModeAndExit(successMessage, force = false) {
       if (!hasModeChanges()) return;
+      if (isModeSaving) return;
+
+      setModeSaving(true);
 
       try {
         const result = await saveItemsToServer({ force: force });
@@ -1456,6 +1510,7 @@
 
           editMode = false;
           shoppingMode = false;
+          isModeSaving = false;
           selectedIds.clear();
           shoppingModeItemIds.clear();
           modeStartItems = null;
@@ -1468,6 +1523,7 @@
         }
 
         if (isConflictResult(result)) {
+          setModeSaving(false);
           pendingConflictAction = () => commitModeAndExit(successMessage, true);
           openConflictModal();
           return;
@@ -1476,6 +1532,7 @@
         throw new Error(result && result.message ? result.message : "保存に失敗しました");
       } catch (error) {
         console.error(error);
+        setModeSaving(false);
         pendingUpdateAction = () => commitModeAndExit(successMessage, force);
         openUpdateRetryModal();
       }
@@ -1484,6 +1541,7 @@
     function exitModeWithoutSaving() {
       editMode = false;
       shoppingMode = false;
+      isModeSaving = false;
       selectedIds.clear();
       shoppingModeItemIds.clear();
       modeStartItems = null;
@@ -1550,8 +1608,8 @@
       editButton.classList.toggle("active", editMode);
       shoppingButton.classList.toggle("active", shoppingMode);
 
-      editButton.disabled = shoppingMode;
-      shoppingButton.disabled = editMode;
+      editButton.disabled = shoppingMode || isModeSaving;
+      shoppingButton.disabled = editMode || isModeSaving;
 
       if (appTitle) {
         appTitle.textContent = "日用品リスト";
@@ -1643,6 +1701,7 @@
       container.addEventListener("touchstart", event => {
         if (shoppingMode) return;
         if (editMode) return;
+        if (isModeSaving) return;
         if (isRefreshing) return;
         if (isBlockingModalOpen()) return;
         if (container.scrollTop > 0) return;
@@ -1656,7 +1715,7 @@
 
       container.addEventListener("touchmove", event => {
         if (!isPulling) return;
-        if (shoppingMode || editMode || isRefreshing || isBlockingModalOpen()) {
+        if (shoppingMode || editMode || isModeSaving || isRefreshing || isBlockingModalOpen()) {
           resetPullRefreshVisual();
           return;
         }
@@ -1685,6 +1744,7 @@
           pullDistance >= PULL_TRIGGER_DISTANCE &&
           !shoppingMode &&
           !editMode &&
+          !isModeSaving &&
           !isRefreshing &&
           !isBlockingModalOpen();
 
@@ -1784,6 +1844,7 @@
                 class="side-check-input"
                 type="checkbox"
                 ${selectedIds.has(item.id) ? "checked" : ""}
+                ${isModeSaving ? "disabled" : ""}
                 onchange="toggleDeleteCheck('${item.id}', this.checked)"
               >
               <span class="side-check-visual"></span>
@@ -1803,6 +1864,7 @@
             type="button"
             onclick="showOwnerToast('${item.icon}')"
             aria-label="担当：${getOwnerName(item.icon)}"
+            ${isModeSaving ? "disabled" : ""}
           >
             ${item.icon}
           </button>
@@ -1822,7 +1884,12 @@
         </div>
 
         ${editMode ? `
-          <button class="item-edit-button" onclick="openEditModal('${item.id}')" aria-label="日用品を編集">
+          <button
+            class="item-edit-button"
+            onclick="openEditModal('${item.id}')"
+            aria-label="日用品を編集"
+            ${isModeSaving ? "disabled" : ""}
+          >
             <svg class="edit-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M6 6.5H14"></path>
               <path d="M6 6.5V18"></path>
@@ -1850,7 +1917,7 @@
         <button
           class="spare-badge ${className}"
           type="button"
-          ${editMode ? "disabled" : ""}
+          ${editMode || isModeSaving ? "disabled" : ""}
           onclick="toggleSpare(${index})"
           aria-label="${label}"
         >
@@ -1860,7 +1927,7 @@
     }
 
     function toggleSpare(index) {
-      if (editMode) return;
+      if (editMode || isModeSaving) return;
       if (index < 0 || !items[index]) return;
 
       rememberPreviousItems();
@@ -1875,7 +1942,7 @@
     }
 
     function toggleEditMode() {
-      if (shoppingMode) return;
+      if (shoppingMode || isModeSaving) return;
 
       editMode = true;
       selectedIds.clear();
@@ -1890,6 +1957,8 @@
     }
 
     function toggleDeleteCheck(id, checked) {
+      if (isModeSaving) return;
+
       if (checked) {
         selectedIds.add(id);
       } else {
@@ -1898,7 +1967,7 @@
     }
 
     function toggleShoppingMode() {
-      if (editMode) return;
+      if (editMode || isModeSaving) return;
 
       shoppingMode = true;
       selectedIds.clear();
@@ -1916,7 +1985,7 @@
     }
 
     function openAddModal() {
-      if (!editMode || shoppingMode) return;
+      if (!editMode || shoppingMode || isModeSaving) return;
 
       modalMode = "add";
       editingItemId = null;
@@ -1938,6 +2007,8 @@
     }
 
     function openEditModal(id) {
+      if (isModeSaving) return;
+
       const item = items.find(item => item.id === id);
       if (!item) return;
 
@@ -1961,15 +2032,18 @@
     }
 
     function closeItemModal() {
+      if (isModeSaving) return;
       document.getElementById("itemModal").classList.remove("show");
     }
 
     function setModalIcon(icon) {
+      if (isModeSaving) return;
       modalIcon = icon;
       updateModalOwnerButtons();
     }
 
     function setModalCategory(category) {
+      if (isModeSaving) return;
       modalCategory = category;
     }
 
@@ -1981,10 +2055,12 @@
 
     function validateItemModal() {
       const name = document.getElementById("modalName").value.trim();
-      document.getElementById("modalConfirm").disabled = name.length === 0;
+      document.getElementById("modalConfirm").disabled = name.length === 0 || isModeSaving;
     }
 
     function confirmItemModal() {
+      if (isModeSaving) return;
+
       const name = document.getElementById("modalName").value.trim();
       const note = document.getElementById("modalNote").value.trim();
 
@@ -2032,6 +2108,8 @@
     }
 
     function openDeleteConfirm() {
+      if (isModeSaving) return;
+
       clearTimeout(saveTimer);
 
       if (selectedIds.size === 0) {
@@ -2046,10 +2124,13 @@
     }
 
     function closeDeleteConfirm() {
+      if (isModeSaving) return;
       document.getElementById("deleteConfirmModal").classList.remove("show");
     }
 
     function confirmDeleteItems() {
+      if (isModeSaving) return;
+
       rememberPreviousItems();
       items = items.filter(item => !selectedIds.has(item.id));
       selectedIds.clear();
@@ -2059,7 +2140,7 @@
     }
 
     function confirmUndo() {
-      if (!previousItems) return;
+      if (!previousItems || isModeSaving) return;
 
       const wasEditMode = editMode;
       const wasShoppingMode = shoppingMode;
@@ -2086,20 +2167,23 @@
     }
 
     function openPurchaseConfirm() {
-      if (!shoppingMode || !hasModeChanges()) return;
+      if (!shoppingMode || !hasModeChanges() || isModeSaving) return;
       document.getElementById("purchaseConfirmModal").classList.add("show");
     }
 
     function closePurchaseConfirm() {
+      if (isModeSaving) return;
       document.getElementById("purchaseConfirmModal").classList.remove("show");
     }
 
     function confirmPurchaseComplete() {
+      if (isModeSaving) return;
       closePurchaseConfirm();
       commitModeAndExit("購入内容を保存しました");
     }
 
     function openHomeCancelConfirm() {
+      if (isModeSaving) return;
       if (!editMode && !shoppingMode) return;
 
       if (!hasModeChanges()) {
@@ -2118,10 +2202,13 @@
     }
 
     function closeHomeCancelConfirm() {
+      if (isModeSaving) return;
       document.getElementById("homeCancelConfirmModal").classList.remove("show");
     }
 
     function confirmHomeCancel() {
+      if (isModeSaving) return;
+
       closeHomeCancelConfirm();
 
       if (modeStartItems) {
@@ -2132,6 +2219,8 @@
     }
 
     function openModeHelp() {
+      if (isModeSaving) return;
+
       const title = document.getElementById("modeHelpTitle");
       const message = document.getElementById("modeHelpMessage");
 
