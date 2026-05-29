@@ -670,29 +670,30 @@
 
     .modal {
       width: 100%;
-      max-width: 420px;
+      max-width: 390px;
       background: white;
       border-radius: 18px;
-      padding: 18px;
+      padding: 16px;
       box-sizing: border-box;
       box-shadow: 0 12px 30px rgba(0,0,0,0.25);
     }
 
     .modal h2 {
-      margin: 0 0 14px;
-      font-size: 20px;
+      margin: 0 0 10px;
+      font-size: 19px;
       text-align: center;
+      line-height: 1.3;
     }
 
     .field {
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     .field label {
       display: block;
       font-size: 14px;
       font-weight: bold;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
 
     .modal input[type="text"] {
@@ -715,7 +716,7 @@
       border: 1px solid #ccc;
       background: white;
       border-radius: 12px;
-      padding: 10px 6px;
+      padding: 9px 6px;
       font-size: 14px;
       font-weight: bold;
     }
@@ -728,13 +729,13 @@
     .modal-actions {
       display: flex;
       gap: 10px;
-      margin-top: 18px;
+      margin-top: 14px;
     }
 
     .cancel-button,
     .confirm-button {
       flex: 1;
-      height: 48px;
+      height: 44px;
       border: none;
       border-radius: 14px;
       font-size: 16px;
@@ -766,9 +767,9 @@
 
     .confirm-message {
       text-align: center;
-      font-size: 16px;
-      line-height: 1.6;
-      margin: 8px 0 18px;
+      font-size: 15px;
+      line-height: 1.55;
+      margin: 4px 0 12px;
       white-space: pre-line;
     }
 
@@ -912,11 +913,11 @@
       <h2>更新失敗</h2>
       <div class="confirm-message">
         サーバーへの更新に失敗しました。<br>
-        再度更新しますか？
+        再試行しますか？
       </div>
       <div class="modal-actions">
-        <button class="cancel-button" onclick="closeUpdateRetryModal()">いいえ</button>
-        <button class="confirm-button" onclick="retryPendingUpdate()">はい</button>
+        <button class="cancel-button" onclick="closeUpdateRetryModal()">閉じる</button>
+        <button class="confirm-button" onclick="retryPendingUpdate()">再試行</button>
       </div>
     </div>
   </div>
@@ -1815,60 +1816,4 @@
         message.textContent =
           "予備なしの項目だけを表示します。\n購入したら「購入」に変え、購入確定で保存します。";
       } else {
-        title.textContent = "日用品リスト";
-        message.textContent =
-          "予備の有無を確認・変更できます。\n買いものは予備なしだけを表示します。";
-      }
-
-      document.getElementById("modeHelpModal").classList.add("show");
-    }
-
-    function closeModeHelp() {
-      document.getElementById("modeHelpModal").classList.remove("show");
-    }
-
-    function openUpdateRetryModal() {
-      hideToast();
-      resetPullRefreshVisual();
-      document.getElementById("updateRetryModal").classList.add("show");
-    }
-
-    function closeUpdateRetryModal() {
-      document.getElementById("updateRetryModal").classList.remove("show");
-    }
-
-    function retryPendingUpdate() {
-      closeUpdateRetryModal();
-
-      if (typeof pendingUpdateAction === "function") {
-        const action = pendingUpdateAction;
-        pendingUpdateAction = null;
-        action();
-      }
-    }
-
-    function openLoadFailureModal(message) {
-      if (isLoadFailureModalOpen) return;
-
-      isLoadFailureModalOpen = true;
-      hideToast();
-      resetPullRefreshVisual();
-
-      document.getElementById("loadFailureMessage").textContent = message;
-      document.getElementById("loadFailureModal").classList.add("show");
-    }
-
-    function closeLoadFailureModal() {
-      isLoadFailureModalOpen = false;
-      document.getElementById("loadFailureModal").classList.remove("show");
-    }
-
-    setupPullToRefresh();
-    loadItems();
-
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js");
-    }
-  </script>
-</body>
-</html>
+        title.textContent = "日
