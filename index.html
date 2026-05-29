@@ -1816,4 +1816,60 @@
         message.textContent =
           "予備なしの項目だけを表示します。\n購入したら「購入」に変え、購入確定で保存します。";
       } else {
-        title.textContent = "日
+        title.textContent = "日用品リスト";
+        message.textContent =
+          "予備の有無を確認・変更できます。\n買いものは予備なしだけを表示します。";
+      }
+
+      document.getElementById("modeHelpModal").classList.add("show");
+    }
+
+    function closeModeHelp() {
+      document.getElementById("modeHelpModal").classList.remove("show");
+    }
+
+    function openUpdateRetryModal() {
+      hideToast();
+      resetPullRefreshVisual();
+      document.getElementById("updateRetryModal").classList.add("show");
+    }
+
+    function closeUpdateRetryModal() {
+      document.getElementById("updateRetryModal").classList.remove("show");
+    }
+
+    function retryPendingUpdate() {
+      closeUpdateRetryModal();
+
+      if (typeof pendingUpdateAction === "function") {
+        const action = pendingUpdateAction;
+        pendingUpdateAction = null;
+        action();
+      }
+    }
+
+    function openLoadFailureModal(message) {
+      if (isLoadFailureModalOpen) return;
+
+      isLoadFailureModalOpen = true;
+      hideToast();
+      resetPullRefreshVisual();
+
+      document.getElementById("loadFailureMessage").textContent = message;
+      document.getElementById("loadFailureModal").classList.add("show");
+    }
+
+    function closeLoadFailureModal() {
+      isLoadFailureModalOpen = false;
+      document.getElementById("loadFailureModal").classList.remove("show");
+    }
+
+    setupPullToRefresh();
+    loadItems();
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js");
+    }
+  </script>
+</body>
+</html>
