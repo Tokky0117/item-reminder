@@ -240,16 +240,19 @@
     }
 
     #items .row,
+    #items .group-header-row,
     #items .empty-list-message {
       transform: translateY(var(--pull-content-offset, 0px));
     }
 
     #items.pull-moving .row,
+    #items.pull-moving .group-header-row,
     #items.pull-moving .empty-list-message {
       transition: none;
     }
 
     #items.pull-settling .row,
+    #items.pull-settling .group-header-row,
     #items.pull-settling .empty-list-message {
       transition: transform 0.22s ease;
     }
@@ -306,6 +309,59 @@
     @keyframes spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
+    }
+
+    .group-header-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .group-header-spacer {
+      width: 30px;
+      flex-shrink: 0;
+      display: none;
+    }
+
+    .app.edit-mode .group-header-spacer {
+      display: block;
+    }
+
+    .group-header-button {
+      width: 100%;
+      min-height: 42px;
+      border: none;
+      border-radius: 12px;
+      padding: 6px 10px;
+      background: rgba(255,255,255,0.78);
+      color: #222;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      box-sizing: border-box;
+      text-align: left;
+    }
+
+    .group-header-title {
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .group-header-count {
+      font-size: 12px;
+      color: #666;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+
+    .group-header-arrow {
+      width: 18px;
+      text-align: center;
+      font-size: 14px;
+      color: #666;
+      flex-shrink: 0;
     }
 
     .row {
@@ -835,8 +891,8 @@
         <label>担当</label>
         <div class="owner-options">
           <button class="owner-option selected" id="modalOwnerKyo" onclick="setModalIcon('共')">共同</button>
-          <button class="owner-option" id="modalOwnerKa" onclick="setModalIcon('か')">かずまさ</button>
           <button class="owner-option" id="modalOwnerMi" onclick="setModalIcon('み')">みゆう</button>
+          <button class="owner-option" id="modalOwnerKa" onclick="setModalIcon('か')">かずまさ</button>
         </div>
       </div>
 
@@ -937,6 +993,7 @@
     const REFRESH_OFFSET = 56;
     const PULL_TRIGGER_DISTANCE = 72;
     const PULL_MAX_DISTANCE = 96;
+    const GROUP_ORDER = ["共", "み", "か"];
 
     let items = [];
     let saveTimer = null;
@@ -947,6 +1004,12 @@
 
     let selectedIds = new Set();
     let shoppingModeItemIds = new Set();
+
+    let collapsedGroups = {
+      "共": false,
+      "み": false,
+      "か": false
+    };
 
     let modalMode = "add";
     let editingItemId = null;
@@ -1017,6 +1080,19 @@
     function hasModeChanges() {
       if (!modeStartItems) return false;
       return !areItemsSame(items, modeStartItems);
+    }
+
+    function expandAllGroups() {
+      collapsedGroups = {
+        "共": false,
+        "み": false,
+        "か": false
+      };
+    }
+
+    function toggleGroup(icon) {
+      collapsedGroups[icon] = !collapsedGroups[icon];
+      render();
     }
 
     function rememberPreviousItems() {
@@ -1225,20 +1301,70 @@
 
       const displayItems = getDisplayItems();
 
-      if (shoppingMode && displayItems.length === 0) {
-        renderEmptyShoppingMessage(container);
+      if (displayItems.length === 0) {
+        if (shoppingMode) {
+          renderEmptyShoppingMessage(container);
+        } else {
+          renderEmptyListMessage(container);
+        }
+
         restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll);
         updatePullRefreshVisual();
         return;
       }
 
-      displayItems.forEach(item => {
-        container.appendChild(createItemRow(item));
-      });
+      if (shoppingMode) {
+        displayItems.forEach(item => {
+          container.appendChild(createItemRow(item));
+        });
+      } else {
+        renderGroupedItems(container, displayItems);
+      }
 
       restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll);
       updatePullRefreshVisual();
       updateActionButtons();
+    }
+
+    function renderGroupedItems(container, displayItems) {
+      GROUP_ORDER.forEach(icon => {
+        const groupItems = displayItems.filter(item => item.icon === icon);
+        if (groupItems.length === 0) return;
+
+        container.appendChild(createGroupHeader(icon, groupItems.length));
+
+        if (!collapsedGroups[icon]) {
+          groupItems.forEach(item => {
+            container.appendChild(createItemRow(item));
+          });
+        }
+      });
+    }
+
+    function createGroupHeader(icon, count) {
+      const row = document.createElement("div");
+      row.className = "group-header-row";
+
+      const arrow = collapsedGroups[icon] ? "›" : "⌄";
+
+      row.innerHTML = `
+        <div class="group-header-spacer"></div>
+        <button class="group-header-button" type="button" onclick="toggleGroup('${icon}')" aria-label="${getOwnerName(icon)}を展開または収納">
+          <button
+            class="icon-button ${getIconClass(icon)}"
+            type="button"
+            tabindex="-1"
+            aria-hidden="true"
+          >
+            ${icon}
+          </button>
+          <span class="group-header-title">${getOwnerName(icon)}</span>
+          <span class="group-header-count">${count}件</span>
+          <span class="group-header-arrow">${arrow}</span>
+        </button>
+      `;
+
+      return row;
     }
 
     function updateAppModeClasses() {
@@ -1437,6 +1563,13 @@
       container.appendChild(empty);
     }
 
+    function renderEmptyListMessage(container) {
+      const empty = document.createElement("div");
+      empty.className = "empty-list-message";
+      empty.textContent = "日用品はありません";
+      container.appendChild(empty);
+    }
+
     function createItemRow(item) {
       const index = items.findIndex(baseItem => baseItem.id === item.id);
       const row = document.createElement("div");
@@ -1559,6 +1692,7 @@
       selectedIds.clear();
       modeStartItems = cloneItems(items);
       clearPreviousItems();
+      expandAllGroups();
       resetPullRefreshVisual();
       render();
     }
@@ -1645,8 +1779,8 @@
 
     function updateModalOwnerButtons() {
       document.getElementById("modalOwnerKyo").classList.toggle("selected", modalIcon === "共");
-      document.getElementById("modalOwnerKa").classList.toggle("selected", modalIcon === "か");
       document.getElementById("modalOwnerMi").classList.toggle("selected", modalIcon === "み");
+      document.getElementById("modalOwnerKa").classList.toggle("selected", modalIcon === "か");
     }
 
     function validateItemModal() {
