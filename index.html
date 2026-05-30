@@ -23,8 +23,8 @@
       --shopping-bg-color: #fff7e8;
       --shopping-header-color: #fff7e8;
       --shopping-accent-color: #a55a00;
-      --shopping-button-bg: #fff0df;
-      --shopping-button-border: rgba(165, 90, 0, 0.34);
+      --shopping-button-bg: transparent;
+      --shopping-button-border: transparent;
     }
 
     * {
@@ -152,19 +152,22 @@
       transform: translate(-50%, 0);
     }
 
-    .header {
+    .header,
+    .item-page-header {
       flex-shrink: 0;
       background: var(--bg-color);
       padding: 10px 12px 7px;
       position: relative;
       transition: background 0.18s ease;
+      box-sizing: border-box;
     }
 
     .app.shopping-mode .header {
       background: var(--shopping-header-color);
     }
 
-    .title-row {
+    .title-row,
+    .item-page-title-row {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -172,7 +175,8 @@
       min-height: 34px;
     }
 
-    .title-center {
+    .title-center,
+    .item-page-title-center {
       max-width: calc(100vw - 230px);
       min-width: 0;
       text-align: center;
@@ -184,6 +188,10 @@
       display: flex;
       align-items: center;
       justify-content: center;
+    }
+
+    .item-page-title-center {
+      max-width: calc(100vw - 160px);
     }
 
     .title-with-help {
@@ -198,9 +206,11 @@
       padding: 0 4px;
     }
 
-    h1 {
+    h1,
+    .item-page-title {
       text-align: center;
       font-size: var(--app-title-size);
+      font-weight: bold;
       margin: 0;
       line-height: 1.25;
       white-space: nowrap;
@@ -208,27 +218,34 @@
       text-overflow: ellipsis;
     }
 
+    .app.shopping-mode h1 {
+      color: var(--shopping-accent-color);
+    }
+
     .shopping-button,
     .shopping-cancel-top-button,
-    .add-top-button {
+    .add-top-button,
+    .item-page-cancel-button,
+    .item-page-save-button {
       position: absolute;
       top: 50%;
       border: none;
       font-weight: bold;
       height: 34px;
+      border-radius: 10px;
+      padding: 0 8px;
+      transform: translateY(-50%);
       transition: background 0.18s ease, color 0.18s ease, opacity 0.18s ease, transform 0.08s ease;
     }
 
     .shopping-button {
       left: 0;
-      background: var(--shopping-button-bg);
+      background: transparent;
       color: var(--shopping-accent-color);
-      border: 1px solid var(--shopping-button-border);
+      border: none;
       font-size: 14px;
-      border-radius: 999px;
-      box-shadow: 0 2px 7px rgba(165, 90, 0, 0.18);
-      padding: 0 11px 0 12px;
-      transform: translateY(-50%);
+      box-shadow: none;
+      padding: 0 4px;
     }
 
     .shopping-button:active {
@@ -241,9 +258,6 @@
       background: transparent;
       color: var(--primary-color);
       font-size: 15px;
-      border-radius: 10px;
-      padding: 0 8px;
-      transform: translateY(-50%);
     }
 
     .add-top-button {
@@ -251,9 +265,24 @@
       background: transparent;
       color: var(--primary-color);
       font-size: 14px;
-      border-radius: 10px;
-      padding: 0 8px;
-      transform: translateY(-50%);
+    }
+
+    .item-page-cancel-button {
+      left: 0;
+      background: transparent;
+      color: var(--primary-color);
+      font-size: 15px;
+    }
+
+    .item-page-save-button {
+      right: 0;
+      background: transparent;
+      color: var(--primary-color);
+      font-size: 15px;
+    }
+
+    .item-page-save-button:disabled {
+      color: #aaa;
     }
 
     .shopping-button:disabled,
@@ -631,7 +660,7 @@
       display: flex;
       gap: 10px;
       align-items: center;
-      padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+      padding: 8px 14px calc(14px + env(safe-area-inset-bottom));
       background: rgba(245, 245, 245, 0.96);
       box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
       box-sizing: border-box;
@@ -640,9 +669,9 @@
 
     .purchase-complete-button {
       display: none;
-      height: 54px;
+      height: 48px;
       border: none;
-      border-radius: 16px;
+      border-radius: 15px;
       background: var(--shopping-accent-color);
       color: white;
       font-size: 16px;
@@ -689,6 +718,7 @@
 
     .app.shopping-mode .footer {
       background: var(--shopping-bg-color);
+      box-shadow: 0 -4px 12px rgba(165,90,0,0.08);
     }
 
     .toast {
@@ -826,57 +856,6 @@
 
     #itemModal.closing .item-page-modal {
       transform: translateX(100%);
-    }
-
-    .item-page-header {
-      flex-shrink: 0;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: calc(10px + env(safe-area-inset-top)) 74px 10px;
-      background: var(--bg-color);
-      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-      box-sizing: border-box;
-      z-index: 2;
-    }
-
-    .item-page-title {
-      font-size: var(--app-title-size);
-      font-weight: bold;
-      margin: 0;
-      line-height: 1.25;
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .item-page-cancel-button,
-    .item-page-save-button {
-      position: absolute;
-      top: 50%;
-      height: 34px;
-      border: none;
-      background: transparent;
-      color: var(--primary-color);
-      font-size: 15px;
-      font-weight: bold;
-      padding: 0 8px;
-      border-radius: 10px;
-      transform: translateY(-50%);
-    }
-
-    .item-page-cancel-button {
-      left: 8px;
-    }
-
-    .item-page-save-button {
-      right: 8px;
-    }
-
-    .item-page-save-button:disabled {
-      color: #aaa;
     }
 
     .item-page-content {
@@ -1121,9 +1100,15 @@
   <div class="modal-backdrop" id="itemModal">
     <div class="modal item-page-modal">
       <div class="item-page-header">
-        <button class="item-page-cancel-button" onclick="closeItemModal()">キャンセル</button>
-        <div class="item-page-title" id="itemModalTitle">日用品を追加</div>
-        <button class="item-page-save-button" id="modalConfirm" onclick="confirmItemModal()" disabled>決定</button>
+        <div class="item-page-title-row">
+          <button class="item-page-cancel-button" onclick="closeItemModal()">キャンセル</button>
+
+          <div class="item-page-title-center">
+            <div class="item-page-title" id="itemModalTitle">日用品を追加</div>
+          </div>
+
+          <button class="item-page-save-button" id="modalConfirm" onclick="confirmItemModal()" disabled>決定</button>
+        </div>
       </div>
 
       <div class="item-page-content">
