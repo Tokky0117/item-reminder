@@ -19,8 +19,6 @@
       --primary-color: #007aff;
       --danger-color: #ff3b30;
 
-      --edit-bg-color: #eef7ff;
-      --edit-header-color: #e1f0ff;
       --shopping-bg-color: #fff7e8;
       --shopping-header-color: #fff0d8;
       --shopping-accent-color: #a55a00;
@@ -43,10 +41,6 @@
       flex-direction: column;
       background: var(--bg-color);
       transition: background 0.18s ease;
-    }
-
-    .app.edit-mode {
-      background: var(--edit-bg-color);
     }
 
     .app.shopping-mode {
@@ -102,10 +96,6 @@
       transition: background 0.18s ease;
     }
 
-    .app.edit-mode .header {
-      background: var(--edit-header-color);
-    }
-
     .app.shopping-mode .header {
       background: var(--shopping-header-color);
     }
@@ -144,20 +134,13 @@
       min-height: 16px;
     }
 
-    .app.edit-mode .mode-label {
-      display: block;
-      color: #0067b8;
-    }
-
     .app.shopping-mode .mode-label {
       display: block;
       color: #9a6400;
     }
 
     .shopping-button,
-    .edit-button,
-    .edit-add-top-button,
-    .edit-delete-top-button {
+    .add-top-button {
       position: absolute;
       top: -2px;
       border: none;
@@ -166,7 +149,7 @@
       height: 36px;
       padding: 0 8px;
       border-radius: 10px;
-      transition: background 0.18s ease, color 0.18s ease;
+      transition: background 0.18s ease, color 0.18s ease, opacity 0.18s ease;
     }
 
     .shopping-button {
@@ -175,14 +158,13 @@
       font-size: 14px;
     }
 
-    .edit-button {
+    .add-top-button {
       right: 0;
       color: var(--primary-color);
       font-size: 16px;
     }
 
-    .shopping-button.active,
-    .edit-button.active {
+    .shopping-button.active {
       background: rgba(0,122,255,0.12);
     }
 
@@ -192,36 +174,13 @@
     }
 
     .shopping-button:disabled,
-    .edit-button:disabled {
+    .add-top-button:disabled {
       opacity: 0.35;
     }
 
-    .edit-add-top-button,
-    .edit-delete-top-button {
-      display: none;
-      font-size: 16px;
-    }
-
-    .edit-delete-top-button {
-      left: 0;
-      color: var(--danger-color);
-    }
-
-    .edit-add-top-button {
-      right: 0;
-      color: var(--primary-color);
-    }
-
-    .app.edit-mode .shopping-button,
-    .app.edit-mode .edit-button,
     .app.shopping-mode .shopping-button,
-    .app.shopping-mode .edit-button {
+    .app.shopping-mode .add-top-button {
       display: none;
-    }
-
-    .app.edit-mode .edit-add-top-button,
-    .app.edit-mode .edit-delete-top-button {
-      display: block;
     }
 
     .owner-tabs {
@@ -394,69 +353,6 @@
       padding: 30px;
     }
 
-    .side-check-wrap {
-      width: 30px;
-      flex-shrink: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .app.edit-mode .side-check-wrap {
-      display: flex;
-    }
-
-    .side-check-label {
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-    }
-
-    .side-check-input {
-      position: absolute;
-      opacity: 0;
-      width: 1px;
-      height: 1px;
-      pointer-events: none;
-    }
-
-    .side-check-visual {
-      width: 24px;
-      height: 24px;
-      border-radius: 7px;
-      border: 2px solid #c9c9c9;
-      background: rgba(255,255,255,0.95);
-      box-sizing: border-box;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
-    }
-
-    .side-check-visual::after {
-      content: "";
-      width: 9px;
-      height: 5px;
-      border-left: 2.4px solid white;
-      border-bottom: 2.4px solid white;
-      transform: rotate(-45deg) scale(0);
-      margin-top: -2px;
-      transition: transform 0.12s ease;
-    }
-
-    .side-check-input:checked + .side-check-visual {
-      background: var(--danger-color);
-      border-color: var(--danger-color);
-      transform: scale(1.03);
-    }
-
-    .side-check-input:checked + .side-check-visual::after {
-      transform: rotate(-45deg) scale(1);
-    }
-
     .item {
       background: white;
       padding: 7px 10px;
@@ -528,65 +424,61 @@
       padding: 0;
     }
 
-    .item-edit-button {
-      width: 34px;
-      height: 34px;
-      border: none;
-      border-radius: 10px;
-      background: transparent;
-      color: #555;
-      flex-shrink: 0;
-      display: none;
+    .item-action-button {
+      width: 32px;
+      height: 32px;
+      border: 1px solid #d1d1d6;
+      border-radius: 50%;
+      background: #f2f2f7;
+      color: #444;
+      font-weight: bold;
+      font-size: 20px;
       line-height: 1;
-      padding: 0;
-      align-items: center;
-      justify-content: center;
+      padding: 0 0 4px;
+      flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      transition: transform 0.08s ease, background 0.16s ease;
     }
 
-    .app.edit-mode .item-edit-button {
-      display: flex;
-    }
-
-    .edit-icon {
-      width: 22px;
-      height: 22px;
-      stroke: currentColor;
-      stroke-width: 2.3;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      fill: none;
+    .item-action-button:active {
+      transform: scale(0.94);
+      background: #e5e5ea;
     }
 
     .spare-badge {
       flex-shrink: 0;
-      min-width: 70px;
-      height: 32px;
-      border: none;
+      min-width: 82px;
+      height: 34px;
       border-radius: 999px;
-      padding: 0 10px;
+      padding: 0 10px 0 12px;
       font-size: 12px;
       font-weight: bold;
       white-space: nowrap;
-      transition: background 0.16s ease, color 0.16s ease, opacity 0.16s ease, transform 0.08s ease;
+      transition: background 0.16s ease, color 0.16s ease, opacity 0.16s ease, transform 0.08s ease, box-shadow 0.16s ease;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.10);
     }
 
     .spare-badge:active {
-      transform: scale(0.97);
+      transform: scale(0.94);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.10);
     }
 
     .spare-badge.has-spare {
       background: #e5f7ea;
       color: #167a35;
+      border: 1px solid rgba(22,122,53,0.28);
     }
 
     .spare-badge.no-spare {
       background: #fff0df;
       color: #a55a00;
+      border: 1px solid rgba(165,90,0,0.34);
     }
 
     .spare-badge:disabled {
       opacity: 0.45;
       transform: none;
+      box-shadow: none;
     }
 
     .footer {
@@ -637,18 +529,6 @@
       opacity: 0.6;
     }
 
-    .edit-complete-button {
-      display: none;
-      height: 54px;
-      border: none;
-      border-radius: 16px;
-      background: var(--primary-color);
-      color: white;
-      font-size: 18px;
-      font-weight: bold;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.12);
-    }
-
     .purchase-complete-button {
       display: none;
       height: 54px;
@@ -661,7 +541,6 @@
       box-shadow: 0 3px 10px rgba(0,0,0,0.16);
     }
 
-    .edit-complete-button:disabled,
     .purchase-complete-button:disabled {
       background: #c8c8c8;
       color: #777;
@@ -669,7 +548,6 @@
       opacity: 1;
     }
 
-    .edit-complete-button.saving,
     .purchase-complete-button.saving {
       gap: 8px;
     }
@@ -686,15 +564,11 @@
       flex-shrink: 0;
     }
 
-    .edit-complete-button:disabled .button-spinner,
     .purchase-complete-button:disabled .button-spinner {
       border-color: rgba(120,120,120,0.28);
       border-right-color: #777;
     }
 
-    .app.edit-mode .undo-button,
-    .app.edit-mode .home-button,
-    .app.edit-mode .edit-complete-button,
     .app.shopping-mode .undo-button,
     .app.shopping-mode .home-button,
     .app.shopping-mode .purchase-complete-button {
@@ -704,7 +578,6 @@
       min-width: 0;
     }
 
-    .app.edit-mode .edit-complete-button,
     .app.shopping-mode .purchase-complete-button {
       align-items: center;
       justify-content: center;
@@ -767,6 +640,35 @@
       font-size: 19px;
       text-align: center;
       line-height: 1.3;
+    }
+
+    .action-sheet {
+      width: 100%;
+      max-width: 330px;
+      background: white;
+      border-radius: 18px;
+      padding: 8px;
+      box-sizing: border-box;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+    }
+
+    .action-sheet-button {
+      width: 100%;
+      height: 48px;
+      border: none;
+      background: white;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+
+    .action-sheet-button.danger {
+      color: var(--danger-color);
+    }
+
+    .action-sheet-button + .action-sheet-button {
+      border-top: 1px solid rgba(0,0,0,0.06);
     }
 
     .field {
@@ -876,15 +778,13 @@
     <div class="header">
       <div class="title-row">
         <button class="shopping-button" onclick="toggleShoppingMode()" aria-label="買いものリスト">買いもの</button>
-        <button class="edit-delete-top-button" onclick="openDeleteConfirm()" aria-label="選択日用品を削除">削除</button>
 
         <button class="title-center" onclick="openModeHelp()" aria-label="ヘルプを表示">
           <h1 id="appTitle">日用品リスト</h1>
           <div class="mode-label" id="modeLabel"></div>
         </button>
 
-        <button class="edit-button" onclick="toggleEditMode()" aria-label="編集">編集</button>
-        <button class="edit-add-top-button" onclick="openAddModal()" aria-label="日用品を追加">＋追加</button>
+        <button class="add-top-button" onclick="openAddModal()" aria-label="日用品を追加">＋追加</button>
       </div>
 
       <div class="owner-tabs" id="ownerTabs" aria-label="担当タブ"></div>
@@ -908,7 +808,6 @@
         </svg>
       </button>
 
-      <button class="edit-complete-button" id="editCompleteButton" onclick="completeEditMode()" aria-label="編集完了" disabled>編集完了</button>
       <button class="purchase-complete-button" id="purchaseCompleteButton" onclick="openPurchaseConfirm()" aria-label="購入確定" disabled>購入確定</button>
     </div>
   </div>
@@ -966,13 +865,20 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="itemActionModal" onclick="closeItemActionMenuByBackdrop(event)">
+    <div class="action-sheet">
+      <button class="action-sheet-button" onclick="editSelectedItemFromMenu()">編集</button>
+      <button class="action-sheet-button danger" onclick="deleteSelectedItemFromMenu()">削除</button>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="deleteConfirmModal">
     <div class="modal">
       <h2>削除確認</h2>
-      <div class="confirm-message" id="deleteConfirmMessage">選択した日用品を削除しますか？</div>
+      <div class="confirm-message" id="deleteConfirmMessage">この日用品を削除しますか？</div>
       <div class="modal-actions">
         <button class="cancel-button" onclick="closeDeleteConfirm()">いいえ</button>
-        <button class="confirm-button danger" onclick="confirmDeleteItems()">はい</button>
+        <button class="confirm-button danger" onclick="confirmDeleteItem()">はい</button>
       </div>
     </div>
   </div>
@@ -991,7 +897,7 @@
   <div class="modal-backdrop" id="homeCancelConfirmModal">
     <div class="modal">
       <h2>確認</h2>
-      <div class="confirm-message" id="homeCancelConfirmMessage">変更をキャンセルして通常モードに戻りますか？</div>
+      <div class="confirm-message" id="homeCancelConfirmMessage">購入をキャンセルしますか？</div>
       <div class="modal-actions">
         <button class="cancel-button" onclick="closeHomeCancelConfirm()">いいえ</button>
         <button class="confirm-button" onclick="confirmHomeCancel()">はい</button>
@@ -1065,19 +971,17 @@
     ];
 
     let items = [];
-    let saveTimer = null;
     let toastTimer = null;
 
-    let editMode = false;
     let shoppingMode = false;
 
-    let selectedIds = new Set();
     let shoppingModeItemIds = new Set();
-
     let activeOwnerTab = "all";
 
     let modalMode = "add";
     let editingItemId = null;
+    let deletingItemId = null;
+    let actionItemId = null;
     let modalIcon = "共";
     let modalCategory = "";
 
@@ -1252,20 +1156,17 @@
     }
 
     function updateActionButtons() {
-      const editCompleteButton = document.getElementById("editCompleteButton");
       const purchaseCompleteButton = document.getElementById("purchaseCompleteButton");
       const homeButton = document.getElementById("homeButton");
+      const addButton = document.querySelector(".add-top-button");
       const hasChanges = hasModeChanges();
 
       if (homeButton) {
         homeButton.disabled = isModeSaving;
       }
 
-      if (editCompleteButton) {
-        const isSavingThisButton = isModeSaving && editMode;
-        editCompleteButton.disabled = isModeSaving || !hasChanges;
-        editCompleteButton.classList.toggle("saving", isSavingThisButton);
-        editCompleteButton.innerHTML = isSavingThisButton ? getSavingButtonHtml() : "編集完了";
+      if (addButton) {
+        addButton.disabled = isModeSaving;
       }
 
       if (purchaseCompleteButton) {
@@ -1318,9 +1219,7 @@
     }
 
     function resetModesAndSelections() {
-      selectedIds.clear();
       shoppingModeItemIds.clear();
-      editMode = false;
       shoppingMode = false;
       isModeSaving = false;
       modeStartItems = null;
@@ -1336,7 +1235,7 @@
       const fromPull = options.fromPull === true;
       const afterLoadMessage = options.afterLoadMessage || "";
 
-      if (fromPull && (shoppingMode || editMode)) {
+      if (fromPull && shoppingMode) {
         resetPullRefreshVisual();
         return;
       }
@@ -1358,7 +1257,6 @@
         }
 
         items = normalizeItems(loadedItems);
-        selectedIds.clear();
 
         if (!shoppingMode) {
           shoppingModeItemIds.clear();
@@ -1508,10 +1406,8 @@
         if (isOkResult(result)) {
           applySaveSuccess(result);
 
-          editMode = false;
           shoppingMode = false;
           isModeSaving = false;
-          selectedIds.clear();
           shoppingModeItemIds.clear();
           modeStartItems = null;
           clearPreviousItems();
@@ -1539,10 +1435,8 @@
     }
 
     function exitModeWithoutSaving() {
-      editMode = false;
       shoppingMode = false;
       isModeSaving = false;
-      selectedIds.clear();
       shoppingModeItemIds.clear();
       modeStartItems = null;
       clearPreviousItems();
@@ -1598,27 +1492,25 @@
     function updateAppModeClasses() {
       const app = document.getElementById("app");
       const appTitle = document.getElementById("appTitle");
-      const editButton = document.querySelector(".edit-button");
       const shoppingButton = document.querySelector(".shopping-button");
+      const addButton = document.querySelector(".add-top-button");
       const modeLabel = document.getElementById("modeLabel");
 
-      app.classList.toggle("edit-mode", editMode);
       app.classList.toggle("shopping-mode", shoppingMode);
 
-      editButton.classList.toggle("active", editMode);
       shoppingButton.classList.toggle("active", shoppingMode);
+      shoppingButton.disabled = isModeSaving;
 
-      editButton.disabled = shoppingMode || isModeSaving;
-      shoppingButton.disabled = editMode || isModeSaving;
+      if (addButton) {
+        addButton.disabled = isModeSaving;
+      }
 
       if (appTitle) {
         appTitle.textContent = "日用品リスト";
       }
 
       if (modeLabel) {
-        if (editMode) {
-          modeLabel.textContent = "編集モード";
-        } else if (shoppingMode) {
+        if (shoppingMode) {
           modeLabel.textContent = "買いものモード";
         } else {
           modeLabel.textContent = "";
@@ -1700,7 +1592,6 @@
 
       container.addEventListener("touchstart", event => {
         if (shoppingMode) return;
-        if (editMode) return;
         if (isModeSaving) return;
         if (isRefreshing) return;
         if (isBlockingModalOpen()) return;
@@ -1715,7 +1606,7 @@
 
       container.addEventListener("touchmove", event => {
         if (!isPulling) return;
-        if (shoppingMode || editMode || isModeSaving || isRefreshing || isBlockingModalOpen()) {
+        if (shoppingMode || isModeSaving || isRefreshing || isBlockingModalOpen()) {
           resetPullRefreshVisual();
           return;
         }
@@ -1743,7 +1634,6 @@
         const shouldRefresh =
           pullDistance >= PULL_TRIGGER_DISTANCE &&
           !shoppingMode &&
-          !editMode &&
           !isModeSaving &&
           !isRefreshing &&
           !isBlockingModalOpen();
@@ -1825,7 +1715,6 @@
       row.className = "row";
 
       row.innerHTML = `
-        ${createSideCheckHtml(item)}
         <div class="item">
           ${createIconHtml(item)}
           ${createItemContentHtml(item, index)}
@@ -1833,27 +1722,6 @@
       `;
 
       return row;
-    }
-
-    function createSideCheckHtml(item) {
-      if (editMode) {
-        return `
-          <div class="side-check-wrap">
-            <label class="side-check-label">
-              <input
-                class="side-check-input"
-                type="checkbox"
-                ${selectedIds.has(item.id) ? "checked" : ""}
-                ${isModeSaving ? "disabled" : ""}
-                onchange="toggleDeleteCheck('${item.id}', this.checked)"
-              >
-              <span class="side-check-visual"></span>
-            </label>
-          </div>
-        `;
-      }
-
-      return `<div class="side-check-wrap"></div>`;
     }
 
     function createIconHtml(item) {
@@ -1883,20 +1751,14 @@
           ${hasNote ? `<div class="note-text">${escapeHtml(item.note)}</div>` : ""}
         </div>
 
-        ${editMode ? `
+        ${!shoppingMode ? `
           <button
-            class="item-edit-button"
-            onclick="openEditModal('${item.id}')"
-            aria-label="日用品を編集"
+            class="item-action-button"
+            onclick="openItemActionMenu('${item.id}')"
+            aria-label="編集または削除"
             ${isModeSaving ? "disabled" : ""}
           >
-            <svg class="edit-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 6.5H14"></path>
-              <path d="M6 6.5V18"></path>
-              <path d="M6 18H17.5V10"></path>
-              <path d="M13.5 14.5L18.4 9.6L20.4 11.6L15.5 16.5L13 17L13.5 14.5Z"></path>
-              <path d="M17.2 10.8L19.2 12.8"></path>
-            </svg>
+            …
           </button>
         ` : ""}
 
@@ -1917,17 +1779,17 @@
         <button
           class="spare-badge ${className}"
           type="button"
-          ${editMode || isModeSaving ? "disabled" : ""}
+          ${isModeSaving ? "disabled" : ""}
           onclick="toggleSpare(${index})"
           aria-label="${label}"
         >
-          ${label}
+          ${label} ›
         </button>
       `;
     }
 
     function toggleSpare(index) {
-      if (editMode || isModeSaving) return;
+      if (isModeSaving) return;
       if (index < 0 || !items[index]) return;
 
       rememberPreviousItems();
@@ -1941,36 +1803,10 @@
       }
     }
 
-    function toggleEditMode() {
-      if (shoppingMode || isModeSaving) return;
-
-      editMode = true;
-      selectedIds.clear();
-      modeStartItems = cloneItems(items);
-      clearPreviousItems();
-      resetPullRefreshVisual();
-      render();
-    }
-
-    function completeEditMode() {
-      commitModeAndExit("編集内容を保存しました");
-    }
-
-    function toggleDeleteCheck(id, checked) {
+    function toggleShoppingMode() {
       if (isModeSaving) return;
 
-      if (checked) {
-        selectedIds.add(id);
-      } else {
-        selectedIds.delete(id);
-      }
-    }
-
-    function toggleShoppingMode() {
-      if (editMode || isModeSaving) return;
-
       shoppingMode = true;
-      selectedIds.clear();
       modeStartItems = cloneItems(items);
       clearPreviousItems();
       resetPullRefreshVisual();
@@ -1985,7 +1821,7 @@
     }
 
     function openAddModal() {
-      if (!editMode || shoppingMode || isModeSaving) return;
+      if (shoppingMode || isModeSaving) return;
 
       modalMode = "add";
       editingItemId = null;
@@ -2077,6 +1913,7 @@
       }
 
       closeItemModal();
+      saveImmediateChange();
       render();
     }
 
@@ -2107,50 +1944,82 @@
       });
     }
 
-    function openDeleteConfirm() {
+    function openItemActionMenu(id) {
+      if (shoppingMode || isModeSaving) return;
+
+      actionItemId = id;
+      document.getElementById("itemActionModal").classList.add("show");
+    }
+
+    function closeItemActionMenu() {
+      document.getElementById("itemActionModal").classList.remove("show");
+      actionItemId = null;
+    }
+
+    function closeItemActionMenuByBackdrop(event) {
+      if (event.target === event.currentTarget) {
+        closeItemActionMenu();
+      }
+    }
+
+    function editSelectedItemFromMenu() {
+      const id = actionItemId;
+      closeItemActionMenu();
+      if (id) {
+        openEditModal(id);
+      }
+    }
+
+    function deleteSelectedItemFromMenu() {
+      const id = actionItemId;
+      closeItemActionMenu();
+
+      if (id) {
+        openDeleteConfirm(id);
+      }
+    }
+
+    function openDeleteConfirm(id) {
       if (isModeSaving) return;
 
-      clearTimeout(saveTimer);
+      const item = items.find(item => item.id === id);
+      if (!item) return;
 
-      if (selectedIds.size === 0) {
-        showToast("削除する日用品を選んでください");
-        return;
-      }
+      deletingItemId = id;
 
       document.getElementById("deleteConfirmMessage").textContent =
-        "選択した日用品を削除しますか？";
+        "「" + (item.name || "名称未入力") + "」を削除しますか？";
 
       document.getElementById("deleteConfirmModal").classList.add("show");
     }
 
     function closeDeleteConfirm() {
       if (isModeSaving) return;
+      deletingItemId = null;
       document.getElementById("deleteConfirmModal").classList.remove("show");
     }
 
-    function confirmDeleteItems() {
-      if (isModeSaving) return;
+    function confirmDeleteItem() {
+      if (isModeSaving || !deletingItemId) return;
 
       rememberPreviousItems();
-      items = items.filter(item => !selectedIds.has(item.id));
-      selectedIds.clear();
+      items = items.filter(item => item.id !== deletingItemId);
+      deletingItemId = null;
 
-      closeDeleteConfirm();
+      document.getElementById("deleteConfirmModal").classList.remove("show");
+      saveImmediateChange();
       render();
     }
 
     function confirmUndo() {
       if (!previousItems || isModeSaving) return;
 
-      const wasEditMode = editMode;
       const wasShoppingMode = shoppingMode;
       const previousShoppingModeItemIds = new Set(shoppingModeItemIds);
 
       items = cloneItems(previousItems);
       previousItems = null;
-      selectedIds.clear();
 
-      editMode = wasEditMode;
       shoppingMode = wasShoppingMode;
 
       if (shoppingMode) {
@@ -2159,7 +2028,7 @@
         shoppingModeItemIds.clear();
       }
 
-      if (!editMode && !shoppingMode) {
+      if (!shoppingMode) {
         saveImmediateChange();
       }
 
@@ -2184,7 +2053,7 @@
 
     function openHomeCancelConfirm() {
       if (isModeSaving) return;
-      if (!editMode && !shoppingMode) return;
+      if (!shoppingMode) return;
 
       if (!hasModeChanges()) {
         exitModeWithoutSaving();
@@ -2193,9 +2062,7 @@
 
       const message = document.getElementById("homeCancelConfirmMessage");
       if (message) {
-        message.textContent = editMode
-          ? "編集をすべてキャンセルしますか？"
-          : "購入をキャンセルしますか？";
+        message.textContent = "購入をキャンセルしますか？";
       }
 
       document.getElementById("homeCancelConfirmModal").classList.add("show");
@@ -2226,18 +2093,14 @@
 
       if (!title || !message) return;
 
-      if (editMode) {
-        title.textContent = "編集モード";
-        message.textContent =
-          "日用品の追加・編集・削除ができます。";
-      } else if (shoppingMode) {
+      if (shoppingMode) {
         title.textContent = "買いものモード";
         message.textContent =
           "日用品の在庫がないものを表示します。\n購入した日用品を「購入」に切り替え、購入確定してください。";
       } else {
         title.textContent = "日用品リスト";
         message.textContent =
-          "日用品の在庫を管理するリストです。\n在庫の有無を確認・変更できます。";
+          "日用品の在庫を管理するリストです。\n在庫の有無を確認・変更できます。\n日用品の追加・編集・削除もできます。";
       }
 
       document.getElementById("modeHelpModal").classList.add("show");
