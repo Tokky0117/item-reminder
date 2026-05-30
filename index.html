@@ -806,44 +806,61 @@
     }
 
     #itemModal {
-      background: var(--bg-color);
-      align-items: stretch;
-      justify-content: stretch;
+      align-items: flex-end;
+      justify-content: center;
       padding: 0;
+      background: rgba(0,0,0,0.35);
+      opacity: 0;
+      transition: opacity 0.24s ease;
     }
 
     #itemModal.show {
       display: flex;
+      opacity: 1;
     }
 
-    .item-full-modal {
+    #itemModal.closing {
+      opacity: 0;
+    }
+
+    .item-sheet-modal {
       width: 100%;
-      max-width: none;
-      height: 100dvh;
-      max-height: 100dvh;
-      border-radius: 0;
-      box-shadow: none;
+      max-width: 430px;
+      height: min(82dvh, 720px);
+      max-height: calc(100dvh - 24px);
+      border-radius: 22px 22px 0 0;
+      box-shadow: 0 -10px 30px rgba(0,0,0,0.24);
       background: var(--bg-color);
       padding: 0;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      transform: translateY(100%);
+      transition: transform 0.28s cubic-bezier(0.22, 0.9, 0.24, 1);
     }
 
-    .item-full-header {
+    #itemModal.show .item-sheet-modal {
+      transform: translateY(0);
+    }
+
+    #itemModal.closing .item-sheet-modal {
+      transform: translateY(100%);
+    }
+
+    .item-sheet-header {
       flex-shrink: 0;
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: calc(14px + env(safe-area-inset-top)) 14px 12px;
+      padding: 18px 54px 13px;
       background: rgba(245,245,245,0.96);
       box-shadow: 0 2px 10px rgba(0,0,0,0.06);
       box-sizing: border-box;
       z-index: 2;
     }
 
-    .item-full-title {
+    .item-sheet-title {
       font-size: 19px;
       font-weight: bold;
       margin: 0;
@@ -851,21 +868,31 @@
       text-align: center;
     }
 
-    .item-full-close-button {
+    .item-sheet-close-button {
       position: absolute;
-      left: 8px;
-      bottom: 7px;
-      height: 36px;
+      right: 14px;
+      top: 12px;
+      width: 34px;
+      height: 34px;
       border: none;
-      background: transparent;
-      color: var(--primary-color);
-      font-size: 15px;
-      font-weight: bold;
-      padding: 0 8px;
-      border-radius: 10px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.06);
+      color: #777;
+      font-size: 28px;
+      font-weight: normal;
+      line-height: 1;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .item-full-content {
+    .item-sheet-close-button:active {
+      transform: scale(0.96);
+      background: rgba(0,0,0,0.09);
+    }
+
+    .item-sheet-content {
       flex: 1;
       min-height: 0;
       overflow-y: auto;
@@ -874,13 +901,13 @@
       box-sizing: border-box;
     }
 
-    .item-full-form {
+    .item-sheet-form {
       width: 100%;
       max-width: 430px;
       margin: 0 auto;
     }
 
-    .item-full-actions {
+    .item-sheet-actions {
       flex-shrink: 0;
       display: flex;
       gap: 10px;
@@ -1028,11 +1055,6 @@
       color: #333;
     }
 
-    .item-modal-cancel-button {
-      background: transparent;
-      color: var(--primary-color);
-    }
-
     .confirm-button {
       background: var(--primary-color);
       color: white;
@@ -1109,14 +1131,14 @@
   </div>
 
   <div class="modal-backdrop" id="itemModal">
-    <div class="modal item-full-modal">
-      <div class="item-full-header">
-        <button class="item-full-close-button" onclick="closeItemModal()">キャンセル</button>
-        <div class="item-full-title" id="itemModalTitle">日用品を追加</div>
+    <div class="modal item-sheet-modal">
+      <div class="item-sheet-header">
+        <div class="item-sheet-title" id="itemModalTitle">日用品を追加</div>
+        <button class="item-sheet-close-button" onclick="closeItemModal()" aria-label="閉じる">×</button>
       </div>
 
-      <div class="item-full-content">
-        <div class="item-full-form">
+      <div class="item-sheet-content">
+        <div class="item-sheet-form">
           <div class="field">
             <label>日用品名</label>
             <input
@@ -1160,7 +1182,7 @@
         </div>
       </div>
 
-      <div class="item-full-actions">
+      <div class="item-sheet-actions">
         <button class="confirm-button" id="modalConfirm" onclick="confirmItemModal()" disabled>決定</button>
       </div>
     </div>
@@ -1264,6 +1286,7 @@
     let toastTimer = null;
     let helpBubbleTimer = null;
     let startupToastTimer = null;
+    let itemModalCloseTimer = null;
 
     let shoppingMode = false;
 
@@ -2188,7 +2211,11 @@
 
       renderCategoryPicker();
       renderOwnerPicker();
-      document.getElementById("itemModal").classList.add("show");
+
+      const modal = document.getElementById("itemModal");
+      clearTimeout(itemModalCloseTimer);
+      modal.classList.remove("closing");
+      modal.classList.add("show");
     }
 
     function openEditModal(id) {
@@ -2214,14 +2241,29 @@
 
       renderCategoryPicker();
       renderOwnerPicker();
-      document.getElementById("itemModal").classList.add("show");
+
+      const modal = document.getElementById("itemModal");
+      clearTimeout(itemModalCloseTimer);
+      modal.classList.remove("closing");
+      modal.classList.add("show");
     }
 
     function closeItemModal() {
       if (isModeSaving) return;
+
       closeCategoryPicker();
       closeOwnerPicker();
-      document.getElementById("itemModal").classList.remove("show");
+
+      const modal = document.getElementById("itemModal");
+      if (!modal || !modal.classList.contains("show")) return;
+
+      clearTimeout(itemModalCloseTimer);
+      modal.classList.add("closing");
+
+      itemModalCloseTimer = setTimeout(() => {
+        modal.classList.remove("show");
+        modal.classList.remove("closing");
+      }, 280);
     }
 
     function setModalIcon(icon) {
