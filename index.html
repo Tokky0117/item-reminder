@@ -795,6 +795,11 @@
       display: flex;
     }
 
+    #itemModal {
+      align-items: flex-start;
+      padding-top: calc(36px + env(safe-area-inset-top));
+    }
+
     .modal {
       width: 100%;
       max-width: 390px;
@@ -803,6 +808,12 @@
       padding: 14px 16px 16px;
       box-sizing: border-box;
       box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+    }
+
+    #itemModal .modal {
+      max-height: calc(100dvh - 72px - env(safe-area-inset-top));
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     .modal h2 {
@@ -847,7 +858,7 @@
       color: #222;
       font-size: 16px;
       font-weight: bold;
-      padding: 0 12px;
+      padding: 0 11px 0 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -855,18 +866,34 @@
     }
 
     .category-picker-arrow {
-      color: #777;
-      font-size: 14px;
-      line-height: 1;
+      width: 18px;
+      height: 18px;
       margin-left: 8px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .category-picker-arrow::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid #555;
+      border-bottom: 2px solid #555;
+      transform: rotate(45deg) translateY(-2px);
+      box-sizing: border-box;
     }
 
     .category-picker-menu {
       display: none;
       position: absolute;
       top: 48px;
-      left: 0;
       right: 0;
+      width: 188px;
+      max-width: 58%;
       border-radius: 14px;
       background: white;
       border: 1px solid rgba(0,0,0,0.08);
@@ -907,22 +934,38 @@
 
     .owner-options {
       display: flex;
-      gap: 8px;
+      gap: 5px;
+      padding: 2px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.04);
     }
 
     .owner-option {
       flex: 1;
-      border: 1px solid #ccc;
-      background: white;
-      border-radius: 12px;
-      padding: 9px 6px;
-      font-size: 14px;
+      min-width: 0;
+      height: 34px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #666;
+      padding: 0 7px;
+      font-size: 13px;
       font-weight: bold;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease;
+    }
+
+    .owner-option:active {
+      transform: scale(0.98);
     }
 
     .owner-option.selected {
-      border: 2px solid var(--primary-color);
-      background: #e8f2ff;
+      background: white;
+      color: #111;
+      border-color: rgba(0,0,0,0.06);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.10);
     }
 
     .modal-actions {
@@ -1031,22 +1074,22 @@
       <h2 id="itemModalTitle">日用品を追加</h2>
 
       <div class="field">
-        <label>担当</label>
-        <div class="owner-options">
-          <button class="owner-option selected" id="modalOwnerKyo" onclick="setModalIcon('共')">共同</button>
-          <button class="owner-option" id="modalOwnerMi" onclick="setModalIcon('み')">みゆう</button>
-          <button class="owner-option" id="modalOwnerKa" onclick="setModalIcon('か')">かずまさ</button>
-        </div>
-      </div>
-
-      <div class="field">
         <label>分類</label>
         <div class="category-picker" id="categoryPicker">
           <button class="category-picker-button" type="button" onclick="toggleCategoryPicker(event)">
             <span id="modalCategoryLabel">その他</span>
-            <span class="category-picker-arrow">⌄</span>
+            <span class="category-picker-arrow" aria-hidden="true"></span>
           </button>
           <div class="category-picker-menu" id="categoryPickerMenu"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>使用者</label>
+        <div class="owner-options">
+          <button class="owner-option selected" id="modalOwnerKyo" onclick="setModalIcon('共')">共同</button>
+          <button class="owner-option" id="modalOwnerMi" onclick="setModalIcon('み')">みゆう</button>
+          <button class="owner-option" id="modalOwnerKa" onclick="setModalIcon('か')">かずまさ</button>
         </div>
       </div>
 
@@ -1940,7 +1983,7 @@
     function createIconHtml(item) {
       return `
         <div class="icon-wrap">
-          <div class="owner-mark" aria-label="担当：${getOwnerName(item.icon)}">
+          <div class="owner-mark" aria-label="使用者：${getOwnerName(item.icon)}">
             ${item.icon}
           </div>
         </div>
@@ -2086,11 +2129,6 @@
       updateModalOwnerButtons();
       renderCategoryPicker();
       document.getElementById("itemModal").classList.add("show");
-
-      setTimeout(() => {
-        const input = document.getElementById("modalName");
-        if (input) input.focus();
-      }, 120);
     }
 
     function openEditModal(id) {
@@ -2116,11 +2154,6 @@
       updateModalOwnerButtons();
       renderCategoryPicker();
       document.getElementById("itemModal").classList.add("show");
-
-      setTimeout(() => {
-        const input = document.getElementById("modalName");
-        if (input) input.focus();
-      }, 120);
     }
 
     function closeItemModal() {
