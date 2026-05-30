@@ -25,6 +25,8 @@
       --shopping-accent-color: #a55a00;
       --shopping-button-bg: transparent;
       --shopping-button-border: transparent;
+
+      --swipe-action-width: 116px;
     }
 
     * {
@@ -485,13 +487,13 @@
     }
 
     .row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
       position: relative;
+      overflow: hidden;
+      border-radius: 8px;
+      touch-action: pan-y;
     }
 
-    .row.menu-open {
+    .row.swipe-open {
       z-index: 40;
     }
 
@@ -501,6 +503,51 @@
       padding: 30px;
     }
 
+    .swipe-actions {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: var(--swipe-action-width);
+      display: flex;
+      align-items: stretch;
+      justify-content: flex-end;
+      border-radius: 8px;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .swipe-action-button {
+      width: 58px;
+      border: none;
+      background: white;
+      color: #333;
+      font-size: 12px;
+      font-weight: bold;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 0;
+      box-sizing: border-box;
+      border-left: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .swipe-action-button.delete {
+      color: var(--danger-color);
+    }
+
+    .swipe-action-icon {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
     .item {
       background: white;
       padding: 7px 10px;
@@ -508,7 +555,6 @@
       display: flex;
       gap: 8px;
       align-items: center;
-      flex: 1;
       min-width: 0;
       min-height: 50px;
       user-select: none;
@@ -516,7 +562,15 @@
       -webkit-touch-callout: none;
       box-shadow: 0 2px 8px rgba(0,0,0,0.10);
       border: 1px solid rgba(0,0,0,0.03);
-      overflow: visible;
+      box-sizing: border-box;
+      position: relative;
+      z-index: 2;
+      transition: transform 0.18s ease;
+      will-change: transform;
+    }
+
+    .row.swipe-open .item {
+      transform: translateX(calc(-1 * var(--swipe-action-width)));
     }
 
     .text-area {
@@ -561,96 +615,29 @@
     }
 
     .owner-mark {
-      width: 26px;
+      min-width: 34px;
       height: 26px;
-      border-radius: 50%;
+      border-radius: 999px;
       background: rgba(0,0,0,0.035);
       color: #8a8a8e;
       font-weight: bold;
       font-size: 12px;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
+      gap: 2px;
       flex-shrink: 0;
+      padding: 0 7px 0 5px;
+      box-sizing: border-box;
     }
 
-    .item-action-wrap {
-      position: relative;
-      width: 30px;
-      height: 30px;
-      flex-shrink: 0;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      z-index: 5;
-    }
-
-    .item-action-button {
-      width: 30px;
-      height: 30px;
-      border: 1px solid transparent;
-      border-radius: 50%;
-      background: rgba(0,0,0,0.025);
-      color: #9a9a9f;
+    .owner-mark::before {
+      content: "‹";
+      color: #b8b8bd;
+      font-size: 15px;
       font-weight: bold;
-      font-size: 19px;
       line-height: 1;
-      padding: 0;
-      flex-shrink: 0;
-      box-shadow: none;
-      transition: transform 0.08s ease, background 0.16s ease, color 0.16s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .item-action-button:active {
-      transform: scale(0.94);
-      background: rgba(0,0,0,0.04);
-      color: #777;
-    }
-
-    .inline-action-menu {
-      position: absolute;
-      top: 36px;
-      right: 0;
-      width: 126px;
-      border-radius: 14px;
-      background: white;
-      border: 1px solid rgba(0,0,0,0.08);
-      box-shadow: 0 10px 24px rgba(0,0,0,0.22);
-      overflow: hidden;
-      z-index: 80;
-    }
-
-    .inline-action-menu-button {
-      width: 100%;
-      height: 42px;
-      border: none;
-      background: white;
-      color: #222;
-      font-size: 14px;
-      font-weight: bold;
-      padding: 0 12px;
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      text-align: left;
-    }
-
-    .inline-action-menu-button + .inline-action-menu-button {
-      border-top: 1px solid rgba(0,0,0,0.06);
-    }
-
-    .inline-action-menu-icon {
-      width: 18px;
-      height: 18px;
-      stroke: #555;
-      stroke-width: 2.2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      fill: none;
-      flex-shrink: 0;
+      margin-top: -1px;
     }
 
     .spare-badge {
@@ -1306,7 +1293,16 @@
     let modalMode = "add";
     let editingItemId = null;
     let deletingItemId = null;
-    let actionItemId = null;
+    let swipedItemId = null;
+
+    let swipeItemId = null;
+    let swipeStartX = 0;
+    let swipeStartY = 0;
+    let swipeCurrentX = 0;
+    let swipeCurrentY = 0;
+    let swipeMoved = false;
+    let swipeCanceled = false;
+
     let modalIcon = "共";
     let modalCategory = "other";
     let isCategoryPickerOpen = false;
@@ -1418,7 +1414,7 @@
     function setOwnerTab(tabKey) {
       if (isModeSaving) return;
       activeOwnerTab = tabKey;
-      closeItemActionMenu();
+      closeSwipedItem();
       hideHelpBubble();
       render();
     }
@@ -1514,7 +1510,7 @@
         collapsedCategories.add(key);
       }
 
-      closeItemActionMenu();
+      closeSwipedItem();
       hideHelpBubble();
       render();
     }
@@ -1581,7 +1577,7 @@
       shoppingMode = false;
       isModeSaving = false;
       modeStartItems = null;
-      actionItemId = null;
+      swipedItemId = null;
       hideHelpBubble();
       resetPullRefreshVisual();
     }
@@ -2081,11 +2077,31 @@
 
     function createItemRow(item) {
       const index = items.findIndex(baseItem => baseItem.id === item.id);
+      const isOpen = swipedItemId === item.id;
       const row = document.createElement("div");
-      row.className = `row ${actionItemId === item.id ? "menu-open" : ""}`;
+
+      row.className = `row ${isOpen ? "swipe-open" : ""}`;
 
       row.innerHTML = `
-        <div class="item">
+        <div class="swipe-actions">
+          <button class="swipe-action-button edit" onclick="editSwipedItem(event, '${item.id}')" aria-label="日用品を編集">
+            ${createPencilIcon("swipe-action-icon")}
+            <span>編集</span>
+          </button>
+          <button class="swipe-action-button delete" onclick="deleteSwipedItem(event, '${item.id}')" aria-label="日用品を削除">
+            ${createTrashIcon("swipe-action-icon")}
+            <span>削除</span>
+          </button>
+        </div>
+
+        <div
+          class="item"
+          ontouchstart="startItemSwipe(event, '${item.id}')"
+          ontouchmove="moveItemSwipe(event)"
+          ontouchend="endItemSwipe(event, '${item.id}')"
+          ontouchcancel="cancelItemSwipe()"
+          onclick="handleItemTap(event, '${item.id}')"
+        >
           ${createIconHtml(item)}
           ${createItemContentHtml(item, index)}
         </div>
@@ -2104,18 +2120,18 @@
       `;
     }
 
-    function createPencilIcon() {
+    function createPencilIcon(className) {
       return `
-        <svg class="inline-action-menu-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <svg class="${className}" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 19L6.3 14.2L16.4 4.1L19.9 7.6L9.8 17.7L5 19Z"></path>
           <path d="M14.8 5.7L18.3 9.2"></path>
         </svg>
       `;
     }
 
-    function createTrashIcon() {
+    function createTrashIcon(className) {
       return `
-        <svg class="inline-action-menu-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <svg class="${className}" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 7H19"></path>
           <path d="M9 7V5H15V7"></path>
           <path d="M8 10V19"></path>
@@ -2127,7 +2143,6 @@
 
     function createItemContentHtml(item, index) {
       const hasNote = item.note.trim().length > 0;
-      const isMenuOpen = actionItemId === item.id;
 
       return `
         <div class="text-area ${hasNote ? "" : "no-note"}">
@@ -2136,31 +2151,6 @@
           </div>
           ${hasNote ? `<div class="note-text">${escapeHtml(item.note)}</div>` : ""}
         </div>
-
-        ${!shoppingMode ? `
-          <div class="item-action-wrap">
-            <button
-              class="item-action-button"
-              onclick="openItemActionMenu(event, '${item.id}')"
-              aria-label="編集または削除"
-              ${isModeSaving ? "disabled" : ""}
-            >
-              ⋯
-            </button>
-            ${isMenuOpen ? `
-              <div class="inline-action-menu">
-                <button class="inline-action-menu-button" onclick="editActionItem(event, '${item.id}')">
-                  ${createPencilIcon()}
-                  <span>編集</span>
-                </button>
-                <button class="inline-action-menu-button" onclick="deleteActionItem(event, '${item.id}')">
-                  ${createTrashIcon()}
-                  <span>削除</span>
-                </button>
-              </div>
-            ` : ""}
-          </div>
-        ` : ""}
 
         ${createSpareBadgeHtml(item, index)}
       `;
@@ -2180,7 +2170,7 @@
           class="spare-badge ${className}"
           type="button"
           ${isModeSaving ? "disabled" : ""}
-          onclick="toggleSpare(${index})"
+          onclick="event.stopPropagation(); toggleSpare(${index})"
           aria-label="${label}"
         >
           ${label} ›
@@ -2188,11 +2178,113 @@
       `;
     }
 
+    function startItemSwipe(event, id) {
+      if (shoppingMode || isModeSaving) return;
+      if (!event.touches || event.touches.length !== 1) return;
+      if (event.target.closest(".spare-badge")) return;
+
+      swipeItemId = id;
+      swipeStartX = event.touches[0].clientX;
+      swipeStartY = event.touches[0].clientY;
+      swipeCurrentX = swipeStartX;
+      swipeCurrentY = swipeStartY;
+      swipeMoved = false;
+      swipeCanceled = false;
+    }
+
+    function moveItemSwipe(event) {
+      if (!swipeItemId || swipeCanceled) return;
+      if (!event.touches || event.touches.length !== 1) return;
+
+      swipeCurrentX = event.touches[0].clientX;
+      swipeCurrentY = event.touches[0].clientY;
+
+      const deltaX = swipeCurrentX - swipeStartX;
+      const deltaY = swipeCurrentY - swipeStartY;
+
+      if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 8) {
+        swipeCanceled = true;
+        return;
+      }
+
+      if (Math.abs(deltaX) > 8) {
+        swipeMoved = true;
+      }
+
+      if (deltaX < -8 || (swipedItemId === swipeItemId && deltaX > 8)) {
+        event.preventDefault();
+      }
+    }
+
+    function endItemSwipe(event, id) {
+      if (!swipeItemId || swipeItemId !== id) {
+        cancelItemSwipe();
+        return;
+      }
+
+      const deltaX = swipeCurrentX - swipeStartX;
+      const shouldOpen = deltaX < -36;
+      const shouldClose = deltaX > 24;
+
+      if (!shoppingMode && !isModeSaving && !swipeCanceled) {
+        if (shouldOpen) {
+          swipedItemId = id;
+          hideHelpBubble();
+          render();
+        } else if (shouldClose) {
+          closeSwipedItem();
+        }
+      }
+
+      cancelItemSwipe();
+    }
+
+    function cancelItemSwipe() {
+      swipeItemId = null;
+      swipeStartX = 0;
+      swipeStartY = 0;
+      swipeCurrentX = 0;
+      swipeCurrentY = 0;
+      swipeMoved = false;
+      swipeCanceled = false;
+    }
+
+    function handleItemTap(event, id) {
+      if (swipeMoved) return;
+
+      if (swipedItemId && swipedItemId === id) {
+        event.stopPropagation();
+        closeSwipedItem();
+      } else if (swipedItemId && swipedItemId !== id) {
+        closeSwipedItem();
+      }
+    }
+
+    function closeSwipedItem() {
+      if (!swipedItemId) return;
+      swipedItemId = null;
+      render();
+    }
+
+    function editSwipedItem(event, id) {
+      event.stopPropagation();
+      swipedItemId = null;
+      render();
+      openEditModal(id);
+    }
+
+    function deleteSwipedItem(event, id) {
+      event.stopPropagation();
+      swipedItemId = null;
+      render();
+      openDeleteConfirm(id);
+    }
+
     function toggleSpare(index) {
       if (isModeSaving) return;
       if (index < 0 || !items[index]) return;
 
-      closeItemActionMenu();
+      closeSwipedItemWithoutRender();
       hideHelpBubble();
       items[index].hasSpare = !items[index].hasSpare;
 
@@ -2204,10 +2296,14 @@
       }
     }
 
+    function closeSwipedItemWithoutRender() {
+      swipedItemId = null;
+    }
+
     function toggleShoppingMode() {
       if (isModeSaving) return;
 
-      closeItemActionMenu();
+      closeSwipedItemWithoutRender();
       hideHelpBubble();
 
       shoppingMode = true;
@@ -2226,7 +2322,7 @@
     function openAddModal() {
       if (shoppingMode || isModeSaving) return;
 
-      actionItemId = null;
+      closeSwipedItemWithoutRender();
       hideHelpBubble();
 
       modalMode = "add";
@@ -2253,7 +2349,7 @@
     function openEditModal(id) {
       if (isModeSaving) return;
 
-      actionItemId = null;
+      closeSwipedItemWithoutRender();
       hideHelpBubble();
 
       const item = items.find(item => item.id === id);
@@ -2455,35 +2551,6 @@
       });
     }
 
-    function openItemActionMenu(event, id) {
-      if (shoppingMode || isModeSaving) return;
-
-      event.stopPropagation();
-      hideHelpBubble();
-      actionItemId = actionItemId === id ? null : id;
-      render();
-    }
-
-    function closeItemActionMenu() {
-      if (!actionItemId) return;
-      actionItemId = null;
-      render();
-    }
-
-    function editActionItem(event, id) {
-      event.stopPropagation();
-      actionItemId = null;
-      render();
-      openEditModal(id);
-    }
-
-    function deleteActionItem(event, id) {
-      event.stopPropagation();
-      actionItemId = null;
-      render();
-      openDeleteConfirm(id);
-    }
-
     function openDeleteConfirm(id) {
       if (isModeSaving) return;
 
@@ -2586,7 +2653,7 @@
         return;
       }
 
-      closeItemActionMenu();
+      closeSwipedItemWithoutRender();
 
       text.textContent =
         "在庫がない日用品だけを表示します。\n購入した日用品を「購入」に切り替え、購入確定してください。";
@@ -2724,8 +2791,8 @@
       if (event.target.closest("#conflictModal")) return;
       if (event.target.closest("#loadFailureModal")) return;
 
-      if (actionItemId && !event.target.closest(".item-action-wrap")) {
-        closeItemActionMenu();
+      if (swipedItemId && !event.target.closest(".row")) {
+        closeSwipedItem();
       }
 
       if (!event.target.closest(".help-bubble") && !event.target.closest("#titleHelpTarget")) {
