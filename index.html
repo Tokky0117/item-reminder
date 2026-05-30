@@ -20,7 +20,7 @@
       --danger-color: #ff3b30;
 
       --shopping-bg-color: #fff7e8;
-      --shopping-header-color: #fff0d8;
+      --shopping-header-color: #fff7e8;
       --shopping-accent-color: #a55a00;
       --shopping-button-bg: #fff0df;
       --shopping-button-border: rgba(165, 90, 0, 0.34);
@@ -171,7 +171,7 @@
     }
 
     .title-center {
-      max-width: calc(100vw - 170px);
+      max-width: calc(100vw - 230px);
       min-width: 0;
       text-align: center;
       border: none;
@@ -250,7 +250,7 @@
       right: 0;
       background: transparent;
       color: var(--primary-color);
-      font-size: 16px;
+      font-size: 14px;
       border-radius: 10px;
       padding: 0 8px;
     }
@@ -299,10 +299,6 @@
       padding: 2px;
       border-radius: 999px;
       background: rgba(0,0,0,0.04);
-    }
-
-    .app.shopping-mode .owner-tabs {
-      display: none;
     }
 
     .owner-tab {
@@ -712,6 +708,10 @@
       justify-content: center;
     }
 
+    .app.shopping-mode .footer {
+      background: rgba(255,247,232,0.96);
+    }
+
     .toast {
       position: fixed;
       top: calc(12px + env(safe-area-inset-top));
@@ -854,7 +854,7 @@
       align-items: center;
       justify-content: center;
       padding: calc(14px + env(safe-area-inset-top)) 74px 12px;
-      background: rgba(245,245,245,0.96);
+      background: var(--bg-color);
       box-shadow: 0 2px 10px rgba(0,0,0,0.06);
       box-sizing: border-box;
       z-index: 2;
@@ -902,7 +902,7 @@
       min-height: 0;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
-      padding: 18px 16px calc(24px + env(safe-area-inset-bottom));
+      padding: 18px 10px calc(24px + env(safe-area-inset-bottom));
       box-sizing: border-box;
     }
 
@@ -910,6 +910,15 @@
       width: 100%;
       max-width: 430px;
       margin: 0 auto;
+    }
+
+    .item-form-card {
+      background: white;
+      padding: 13px 12px 15px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+      border: 1px solid rgba(0,0,0,0.03);
+      box-sizing: border-box;
     }
 
     .modal h2 {
@@ -921,6 +930,10 @@
 
     .field {
       margin-bottom: 14px;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
     }
 
     .field label {
@@ -1095,7 +1108,7 @@
   <div class="app" id="app">
     <div class="header">
       <div class="title-row">
-        <button class="shopping-button" onclick="toggleShoppingMode()" aria-label="買いものリスト">買いもの ›</button>
+        <button class="shopping-button" onclick="toggleShoppingMode()" aria-label="買いものリスト">買いもの ⇅</button>
         <button class="shopping-cancel-top-button" id="shoppingCancelTopButton" onclick="openHomeCancelConfirm()" aria-label="買いものをキャンセル">キャンセル</button>
 
         <div class="title-center">
@@ -1106,7 +1119,7 @@
           </div>
         </div>
 
-        <button class="add-top-button" onclick="openAddModal()" aria-label="日用品を追加">＋追加</button>
+        <button class="add-top-button" onclick="openAddModal()" aria-label="日用品を追加">日用品を追加</button>
       </div>
 
       <div class="owner-tabs" id="ownerTabs" aria-label="担当タブ"></div>
@@ -1135,44 +1148,46 @@
 
       <div class="item-page-content">
         <div class="item-page-form">
-          <div class="field">
-            <label>日用品名</label>
-            <input
-              id="modalName"
-              type="text"
-              placeholder="入力してください"
-              oninput="validateItemModal()"
-            >
-          </div>
-
-          <div class="field">
-            <label>備考</label>
-            <input
-              id="modalNote"
-              type="text"
-              placeholder="任意"
-            >
-          </div>
-
-          <div class="field">
-            <label>分類</label>
-            <div class="picker" id="categoryPicker">
-              <button class="picker-button" type="button" onclick="toggleCategoryPicker(event)">
-                <span id="modalCategoryLabel">その他</span>
-                <span class="picker-arrow" aria-hidden="true"></span>
-              </button>
-              <div class="picker-menu" id="categoryPickerMenu"></div>
+          <div class="item-form-card">
+            <div class="field">
+              <label>日用品名</label>
+              <input
+                id="modalName"
+                type="text"
+                placeholder="入力してください"
+                oninput="validateItemModal()"
+              >
             </div>
-          </div>
 
-          <div class="field">
-            <label>使用者</label>
-            <div class="picker" id="ownerPicker">
-              <button class="picker-button" type="button" onclick="toggleOwnerPicker(event)">
-                <span id="modalOwnerLabel">共同</span>
-                <span class="picker-arrow" aria-hidden="true"></span>
-              </button>
-              <div class="picker-menu" id="ownerPickerMenu"></div>
+            <div class="field">
+              <label>備考</label>
+              <input
+                id="modalNote"
+                type="text"
+                placeholder="任意"
+              >
+            </div>
+
+            <div class="field">
+              <label>分類</label>
+              <div class="picker" id="categoryPicker">
+                <button class="picker-button" type="button" onclick="toggleCategoryPicker(event)">
+                  <span id="modalCategoryLabel">その他</span>
+                  <span class="picker-arrow" aria-hidden="true"></span>
+                </button>
+                <div class="picker-menu" id="categoryPickerMenu"></div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>使用者</label>
+              <div class="picker" id="ownerPicker">
+                <button class="picker-button" type="button" onclick="toggleOwnerPicker(event)">
+                  <span id="modalOwnerLabel">共同</span>
+                  <span class="picker-arrow" aria-hidden="true"></span>
+                </button>
+                <div class="picker-menu" id="ownerPickerMenu"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -1406,11 +1421,15 @@
     }
 
     function getItemsForOwnerTab(tabKey) {
+      const baseItems = shoppingMode
+        ? items.filter(item => shoppingModeItemIds.has(item.id))
+        : items;
+
       if (tabKey === "all") {
-        return items;
+        return baseItems;
       }
 
-      return items.filter(item => item.icon === tabKey);
+      return baseItems.filter(item => item.icon === tabKey);
     }
 
     function getOwnerTabStockClass(tabKey) {
@@ -2009,6 +2028,10 @@
         displayItems = items.filter(item => item.icon === activeOwnerTab);
       }
 
+      if (activeOwnerTab !== "all") {
+        displayItems = displayItems.filter(item => item.icon === activeOwnerTab);
+      }
+
       return sortItemsByCategory(displayItems);
     }
 
@@ -2022,7 +2045,9 @@
     function renderEmptyShoppingMessage(container) {
       const empty = document.createElement("div");
       empty.className = "empty-list-message";
-      empty.textContent = "買いもの対象はありません";
+      empty.textContent = activeOwnerTab === "all"
+        ? "買いもの対象はありません"
+        : getOwnerName(activeOwnerTab) + "の買いもの対象はありません";
       container.appendChild(empty);
     }
 
