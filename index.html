@@ -18,6 +18,7 @@
       --bg-color: #f5f5f5;
       --primary-color: #007aff;
       --danger-color: #ff3b30;
+      --app-title-size: 22px;
 
       --shopping-bg-color: #fff7e8;
       --shopping-header-color: #fff7e8;
@@ -154,7 +155,7 @@
     .header {
       flex-shrink: 0;
       background: var(--bg-color);
-      padding: 14px 12px 8px;
+      padding: 10px 12px 7px;
       position: relative;
       transition: background 0.18s ease;
     }
@@ -168,7 +169,7 @@
       align-items: center;
       justify-content: center;
       position: relative;
-      min-height: 36px;
+      min-height: 34px;
     }
 
     .title-center {
@@ -189,13 +190,17 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 5px;
       min-width: 0;
+      border-radius: 10px;
+    }
+
+    .app.shopping-mode .title-with-help {
+      padding: 0 4px;
     }
 
     h1 {
       text-align: center;
-      font-size: 24px;
+      font-size: var(--app-title-size);
       margin: 0;
       line-height: 1.25;
       white-space: nowrap;
@@ -210,7 +215,7 @@
       top: 50%;
       border: none;
       font-weight: bold;
-      height: 36px;
+      height: 34px;
       transition: background 0.18s ease, color 0.18s ease, opacity 0.18s ease, transform 0.08s ease;
     }
 
@@ -251,28 +256,9 @@
       transform: translateY(-50%);
     }
 
-    .help-button {
-      display: none;
-      width: 17px;
-      height: 17px;
-      border: 1px solid rgba(154,100,0,0.22);
-      border-radius: 50%;
-      background: rgba(255,255,255,0.68);
-      color: #9a6400;
-      font-size: 11px;
-      font-weight: bold;
-      padding: 0;
-      line-height: 1;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      margin-top: 1px;
-    }
-
     .shopping-button:disabled,
     .shopping-cancel-top-button:disabled,
-    .add-top-button:disabled,
-    .help-button:disabled {
+    .add-top-button:disabled {
       opacity: 0.35;
     }
 
@@ -285,14 +271,10 @@
       display: block;
     }
 
-    .app.shopping-mode .help-button {
-      display: inline-flex;
-    }
-
     .owner-tabs {
       display: flex;
       gap: 5px;
-      margin-top: 9px;
+      margin-top: 8px;
       padding: 2px;
       border-radius: 999px;
       background: rgba(0,0,0,0.04);
@@ -706,7 +688,7 @@
     }
 
     .app.shopping-mode .footer {
-      background: rgba(255,247,232,0.96);
+      background: var(--shopping-bg-color);
     }
 
     .toast {
@@ -737,19 +719,20 @@
 
     .help-bubble {
       position: fixed;
-      top: calc(54px + env(safe-area-inset-top));
-      right: 12px;
-      width: min(280px, calc(100vw - 24px));
+      top: var(--help-bubble-top, calc(48px + env(safe-area-inset-top)));
+      left: var(--help-bubble-left, 50%);
+      width: max-content;
+      max-width: min(250px, calc(100vw - 24px));
       background: rgba(40, 40, 40, 0.92);
       color: white;
-      border-radius: 14px;
-      padding: 10px 12px;
+      border-radius: 13px;
+      padding: 8px 10px;
       box-sizing: border-box;
       font-size: 12px;
-      line-height: 1.45;
+      line-height: 1.42;
       z-index: 160;
       opacity: 0;
-      transform: translateY(-6px);
+      transform: translate(-50%, -5px);
       pointer-events: none;
       transition: opacity 0.24s ease, transform 0.24s ease;
       white-space: pre-line;
@@ -757,20 +740,21 @@
 
     .help-bubble.show {
       opacity: 1;
-      transform: translateY(0);
+      transform: translate(-50%, 0);
       pointer-events: auto;
     }
 
     .help-bubble.hide {
       opacity: 0;
-      transform: translateY(-6px);
+      transform: translate(-50%, -5px);
     }
 
     .help-bubble::before {
       content: "";
       position: absolute;
       top: -7px;
-      right: 16px;
+      left: var(--help-bubble-arrow-left, 50%);
+      transform: translateX(-50%);
       border-left: 7px solid transparent;
       border-right: 7px solid transparent;
       border-bottom: 7px solid rgba(40, 40, 40, 0.92);
@@ -850,7 +834,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: calc(14px + env(safe-area-inset-top)) 74px 12px;
+      padding: calc(10px + env(safe-area-inset-top)) 74px 10px;
       background: var(--bg-color);
       box-shadow: 0 2px 10px rgba(0,0,0,0.06);
       box-sizing: border-box;
@@ -858,7 +842,7 @@
     }
 
     .item-page-title {
-      font-size: 24px;
+      font-size: var(--app-title-size);
       font-weight: bold;
       margin: 0;
       line-height: 1.25;
@@ -871,8 +855,8 @@
     .item-page-cancel-button,
     .item-page-save-button {
       position: absolute;
-      bottom: 7px;
-      height: 36px;
+      top: 50%;
+      height: 34px;
       border: none;
       background: transparent;
       color: var(--primary-color);
@@ -880,6 +864,7 @@
       font-weight: bold;
       padding: 0 8px;
       border-radius: 10px;
+      transform: translateY(-50%);
     }
 
     .item-page-cancel-button {
@@ -1109,9 +1094,8 @@
         <button class="shopping-cancel-top-button" id="shoppingCancelTopButton" onclick="openHomeCancelConfirm()" aria-label="買い物をキャンセル">キャンセル</button>
 
         <div class="title-center">
-          <div class="title-with-help">
+          <div class="title-with-help" id="titleHelpTarget" onclick="toggleShoppingHelpFromTitle(event)">
             <h1 id="appTitle">日用品リスト</h1>
-            <button class="help-button" onclick="toggleHelpBubble(event)" aria-label="ヘルプ">i</button>
           </div>
         </div>
 
@@ -1504,7 +1488,6 @@
       const purchaseCompleteButton = document.getElementById("purchaseCompleteButton");
       const cancelButton = document.getElementById("shoppingCancelTopButton");
       const addButton = document.querySelector(".add-top-button");
-      const helpButton = document.querySelector(".help-button");
       const hasChanges = hasModeChanges();
 
       if (cancelButton) {
@@ -1513,10 +1496,6 @@
 
       if (addButton) {
         addButton.disabled = isModeSaving;
-      }
-
-      if (helpButton) {
-        helpButton.disabled = isModeSaving;
       }
 
       if (purchaseCompleteButton) {
@@ -2534,7 +2513,7 @@
       exitModeWithoutSaving();
     }
 
-    function toggleHelpBubble(event) {
+    function toggleShoppingHelpFromTitle(event) {
       if (event) {
         event.stopPropagation();
       }
@@ -2543,7 +2522,9 @@
 
       const bubble = document.getElementById("helpBubble");
       const text = document.getElementById("helpBubbleText");
-      if (!bubble || !text) return;
+      const target = document.getElementById("titleHelpTarget");
+
+      if (!bubble || !text || !target) return;
 
       if (bubble.classList.contains("show")) {
         hideHelpBubble();
@@ -2555,6 +2536,8 @@
       text.textContent =
         "在庫がない日用品だけを表示します。\n購入した日用品を「購入」に切り替え、購入確定してください。";
 
+      positionHelpBubble(target);
+
       clearTimeout(helpBubbleTimer);
       bubble.classList.remove("hide");
       bubble.classList.add("show");
@@ -2562,6 +2545,29 @@
       helpBubbleTimer = setTimeout(() => {
         hideHelpBubble();
       }, 10000);
+    }
+
+    function positionHelpBubble(target) {
+      const bubble = document.getElementById("helpBubble");
+      if (!bubble || !target) return;
+
+      const rect = target.getBoundingClientRect();
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+      const bubbleHalfWidth = 125;
+      const margin = 12;
+
+      const rawCenter = rect.left + rect.width / 2;
+      const clampedCenter = Math.min(
+        Math.max(rawCenter, margin + bubbleHalfWidth),
+        viewportWidth - margin - bubbleHalfWidth
+      );
+
+      const top = rect.bottom + 8;
+      const arrowLeft = rawCenter - clampedCenter + bubbleHalfWidth;
+
+      bubble.style.setProperty("--help-bubble-left", clampedCenter + "px");
+      bubble.style.setProperty("--help-bubble-top", top + "px");
+      bubble.style.setProperty("--help-bubble-arrow-left", arrowLeft + "px");
     }
 
     function hideHelpBubble() {
@@ -2667,7 +2673,7 @@
         closeItemActionMenu();
       }
 
-      if (!event.target.closest(".help-bubble") && !event.target.closest(".help-button")) {
+      if (!event.target.closest(".help-bubble") && !event.target.closest("#titleHelpTarget")) {
         hideHelpBubble();
       }
     });
