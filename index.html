@@ -795,11 +795,6 @@
       display: flex;
     }
 
-    #itemModal {
-      align-items: flex-start;
-      padding-top: calc(36px + env(safe-area-inset-top));
-    }
-
     .modal {
       width: 100%;
       max-width: 390px;
@@ -810,10 +805,89 @@
       box-shadow: 0 12px 30px rgba(0,0,0,0.25);
     }
 
-    #itemModal .modal {
-      max-height: calc(100dvh - 72px - env(safe-area-inset-top));
+    #itemModal {
+      background: var(--bg-color);
+      align-items: stretch;
+      justify-content: stretch;
+      padding: 0;
+    }
+
+    #itemModal.show {
+      display: flex;
+    }
+
+    .item-full-modal {
+      width: 100%;
+      max-width: none;
+      height: 100dvh;
+      max-height: 100dvh;
+      border-radius: 0;
+      box-shadow: none;
+      background: var(--bg-color);
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .item-full-header {
+      flex-shrink: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: calc(14px + env(safe-area-inset-top)) 14px 12px;
+      background: rgba(245,245,245,0.96);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      box-sizing: border-box;
+      z-index: 2;
+    }
+
+    .item-full-title {
+      font-size: 19px;
+      font-weight: bold;
+      margin: 0;
+      line-height: 1.3;
+      text-align: center;
+    }
+
+    .item-full-close-button {
+      position: absolute;
+      left: 8px;
+      bottom: 7px;
+      height: 36px;
+      border: none;
+      background: transparent;
+      color: var(--primary-color);
+      font-size: 15px;
+      font-weight: bold;
+      padding: 0 8px;
+      border-radius: 10px;
+    }
+
+    .item-full-content {
+      flex: 1;
+      min-height: 0;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
+      padding: 18px 16px 18px;
+      box-sizing: border-box;
+    }
+
+    .item-full-form {
+      width: 100%;
+      max-width: 430px;
+      margin: 0 auto;
+    }
+
+    .item-full-actions {
+      flex-shrink: 0;
+      display: flex;
+      gap: 10px;
+      padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+      background: rgba(245,245,245,0.96);
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
+      box-sizing: border-box;
     }
 
     .modal h2 {
@@ -824,7 +898,7 @@
     }
 
     .field {
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
 
     .field label {
@@ -836,8 +910,9 @@
 
     .modal input[type="text"] {
       width: 100%;
-      padding: 8px;
-      border-radius: 8px;
+      height: 42px;
+      padding: 8px 10px;
+      border-radius: 10px;
       border: 1px solid #ccc;
       font-size: 16px;
       min-width: 0;
@@ -845,11 +920,11 @@
       background: white;
     }
 
-    .category-picker {
+    .picker {
       position: relative;
     }
 
-    .category-picker-button {
+    .picker-button {
       width: 100%;
       height: 42px;
       border: 1px solid #ccc;
@@ -865,7 +940,7 @@
       box-sizing: border-box;
     }
 
-    .category-picker-arrow {
+    .picker-arrow {
       width: 18px;
       height: 18px;
       margin-left: 8px;
@@ -877,7 +952,7 @@
       position: relative;
     }
 
-    .category-picker-arrow::before {
+    .picker-arrow::before {
       content: "";
       width: 7px;
       height: 7px;
@@ -887,7 +962,7 @@
       box-sizing: border-box;
     }
 
-    .category-picker-menu {
+    .picker-menu {
       display: none;
       position: absolute;
       top: 48px;
@@ -902,11 +977,11 @@
       z-index: 140;
     }
 
-    .category-picker.open .category-picker-menu {
+    .picker.open .picker-menu {
       display: block;
     }
 
-    .category-picker-option {
+    .picker-option {
       width: 100%;
       height: 42px;
       border: none;
@@ -921,51 +996,15 @@
       text-align: left;
     }
 
-    .category-picker-option + .category-picker-option {
+    .picker-option + .picker-option {
       border-top: 1px solid rgba(0,0,0,0.06);
     }
 
-    .category-picker-option.selected::after {
+    .picker-option.selected::after {
       content: "✓";
       margin-left: auto;
       color: var(--primary-color);
       font-weight: bold;
-    }
-
-    .owner-options {
-      display: flex;
-      gap: 5px;
-      padding: 2px;
-      border-radius: 999px;
-      background: rgba(0,0,0,0.04);
-    }
-
-    .owner-option {
-      flex: 1;
-      min-width: 0;
-      height: 34px;
-      border-radius: 999px;
-      border: 1px solid transparent;
-      background: transparent;
-      color: #666;
-      padding: 0 7px;
-      font-size: 13px;
-      font-weight: bold;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease;
-    }
-
-    .owner-option:active {
-      transform: scale(0.98);
-    }
-
-    .owner-option.selected {
-      background: white;
-      color: #111;
-      border-color: rgba(0,0,0,0.06);
-      box-shadow: 0 2px 6px rgba(0,0,0,0.10);
     }
 
     .modal-actions {
@@ -1070,50 +1109,58 @@
   </div>
 
   <div class="modal-backdrop" id="itemModal">
-    <div class="modal">
-      <h2 id="itemModalTitle">日用品を追加</h2>
+    <div class="modal item-full-modal">
+      <div class="item-full-header">
+        <button class="item-full-close-button" onclick="closeItemModal()">キャンセル</button>
+        <div class="item-full-title" id="itemModalTitle">日用品を追加</div>
+      </div>
 
-      <div class="field">
-        <label>分類</label>
-        <div class="category-picker" id="categoryPicker">
-          <button class="category-picker-button" type="button" onclick="toggleCategoryPicker(event)">
-            <span id="modalCategoryLabel">その他</span>
-            <span class="category-picker-arrow" aria-hidden="true"></span>
-          </button>
-          <div class="category-picker-menu" id="categoryPickerMenu"></div>
+      <div class="item-full-content">
+        <div class="item-full-form">
+          <div class="field">
+            <label>日用品名</label>
+            <input
+              id="modalName"
+              type="text"
+              placeholder="入力してください"
+              oninput="validateItemModal()"
+            >
+          </div>
+
+          <div class="field">
+            <label>備考</label>
+            <input
+              id="modalNote"
+              type="text"
+              placeholder="任意"
+            >
+          </div>
+
+          <div class="field">
+            <label>分類</label>
+            <div class="picker" id="categoryPicker">
+              <button class="picker-button" type="button" onclick="toggleCategoryPicker(event)">
+                <span id="modalCategoryLabel">その他</span>
+                <span class="picker-arrow" aria-hidden="true"></span>
+              </button>
+              <div class="picker-menu" id="categoryPickerMenu"></div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>使用者</label>
+            <div class="picker" id="ownerPicker">
+              <button class="picker-button" type="button" onclick="toggleOwnerPicker(event)">
+                <span id="modalOwnerLabel">共同</span>
+                <span class="picker-arrow" aria-hidden="true"></span>
+              </button>
+              <div class="picker-menu" id="ownerPickerMenu"></div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="field">
-        <label>使用者</label>
-        <div class="owner-options">
-          <button class="owner-option selected" id="modalOwnerKyo" onclick="setModalIcon('共')">共同</button>
-          <button class="owner-option" id="modalOwnerMi" onclick="setModalIcon('み')">みゆう</button>
-          <button class="owner-option" id="modalOwnerKa" onclick="setModalIcon('か')">かずまさ</button>
-        </div>
-      </div>
-
-      <div class="field">
-        <label>日用品名</label>
-        <input
-          id="modalName"
-          type="text"
-          placeholder="入力してください"
-          oninput="validateItemModal()"
-        >
-      </div>
-
-      <div class="field">
-        <label>備考</label>
-        <input
-          id="modalNote"
-          type="text"
-          placeholder="任意"
-        >
-      </div>
-
-      <div class="modal-actions">
-        <button class="cancel-button item-modal-cancel-button" onclick="closeItemModal()">キャンセル</button>
+      <div class="item-full-actions">
         <button class="confirm-button" id="modalConfirm" onclick="confirmItemModal()" disabled>決定</button>
       </div>
     </div>
@@ -1199,6 +1246,12 @@
       { key: "all", full: "すべて", short: "全" }
     ];
 
+    const OWNER_OPTIONS = [
+      { key: "共", name: "共同" },
+      { key: "み", name: "みゆう" },
+      { key: "か", name: "かずまさ" }
+    ];
+
     const CATEGORY_LABELS = [
       { key: "food", name: "飲食" },
       { key: "kitchen", name: "キッチン" },
@@ -1224,6 +1277,7 @@
     let modalIcon = "共";
     let modalCategory = "other";
     let isCategoryPickerOpen = false;
+    let isOwnerPickerOpen = false;
 
     let modeStartItems = null;
     let pendingUpdateAction = null;
@@ -1385,6 +1439,11 @@
     function getCategoryName(category) {
       const label = CATEGORY_LABELS.find(label => label.key === category);
       return label ? label.name : "その他";
+    }
+
+    function getOwnerOptionName(icon) {
+      const owner = OWNER_OPTIONS.find(option => option.key === icon);
+      return owner ? owner.name : "共同";
     }
 
     function sortItemsByCategory(sourceItems) {
@@ -2120,14 +2179,15 @@
       modalIcon = "共";
       modalCategory = "other";
       isCategoryPickerOpen = false;
+      isOwnerPickerOpen = false;
 
       document.getElementById("itemModalTitle").textContent = "日用品を追加";
       document.getElementById("modalName").value = "";
       document.getElementById("modalNote").value = "";
       document.getElementById("modalConfirm").disabled = true;
 
-      updateModalOwnerButtons();
       renderCategoryPicker();
+      renderOwnerPicker();
       document.getElementById("itemModal").classList.add("show");
     }
 
@@ -2145,27 +2205,30 @@
       modalIcon = item.icon || "共";
       modalCategory = item.category || "other";
       isCategoryPickerOpen = false;
+      isOwnerPickerOpen = false;
 
       document.getElementById("itemModalTitle").textContent = "日用品を編集";
       document.getElementById("modalName").value = item.name || "";
       document.getElementById("modalNote").value = item.note || "";
       document.getElementById("modalConfirm").disabled = !(item.name || "").trim();
 
-      updateModalOwnerButtons();
       renderCategoryPicker();
+      renderOwnerPicker();
       document.getElementById("itemModal").classList.add("show");
     }
 
     function closeItemModal() {
       if (isModeSaving) return;
       closeCategoryPicker();
+      closeOwnerPicker();
       document.getElementById("itemModal").classList.remove("show");
     }
 
     function setModalIcon(icon) {
       if (isModeSaving) return;
-      modalIcon = icon;
-      updateModalOwnerButtons();
+      modalIcon = icon || "共";
+      isOwnerPickerOpen = false;
+      renderOwnerPicker();
     }
 
     function setModalCategory(category) {
@@ -2182,14 +2245,35 @@
 
       if (isModeSaving) return;
 
+      isOwnerPickerOpen = false;
       isCategoryPickerOpen = !isCategoryPickerOpen;
+      renderOwnerPicker();
       renderCategoryPicker();
+    }
+
+    function toggleOwnerPicker(event) {
+      if (event) {
+        event.stopPropagation();
+      }
+
+      if (isModeSaving) return;
+
+      isCategoryPickerOpen = false;
+      isOwnerPickerOpen = !isOwnerPickerOpen;
+      renderCategoryPicker();
+      renderOwnerPicker();
     }
 
     function closeCategoryPicker() {
       if (!isCategoryPickerOpen) return;
       isCategoryPickerOpen = false;
       renderCategoryPicker();
+    }
+
+    function closeOwnerPicker() {
+      if (!isOwnerPickerOpen) return;
+      isOwnerPickerOpen = false;
+      renderOwnerPicker();
     }
 
     function renderCategoryPicker() {
@@ -2207,7 +2291,7 @@
       CATEGORY_LABELS.forEach(category => {
         const button = document.createElement("button");
         button.type = "button";
-        button.className = `category-picker-option ${modalCategory === category.key ? "selected" : ""}`;
+        button.className = `picker-option ${modalCategory === category.key ? "selected" : ""}`;
         button.textContent = category.name;
         button.onclick = event => {
           event.stopPropagation();
@@ -2218,10 +2302,30 @@
       });
     }
 
-    function updateModalOwnerButtons() {
-      document.getElementById("modalOwnerKyo").classList.toggle("selected", modalIcon === "共");
-      document.getElementById("modalOwnerMi").classList.toggle("selected", modalIcon === "み");
-      document.getElementById("modalOwnerKa").classList.toggle("selected", modalIcon === "か");
+    function renderOwnerPicker() {
+      const picker = document.getElementById("ownerPicker");
+      const label = document.getElementById("modalOwnerLabel");
+      const menu = document.getElementById("ownerPickerMenu");
+
+      if (!picker || !label || !menu) return;
+
+      picker.classList.toggle("open", isOwnerPickerOpen);
+      label.textContent = getOwnerOptionName(modalIcon || "共");
+
+      menu.innerHTML = "";
+
+      OWNER_OPTIONS.forEach(owner => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `picker-option ${modalIcon === owner.key ? "selected" : ""}`;
+        button.textContent = owner.name;
+        button.onclick = event => {
+          event.stopPropagation();
+          setModalIcon(owner.key);
+        };
+
+        menu.appendChild(button);
+      });
     }
 
     function validateItemModal() {
@@ -2503,10 +2607,12 @@
     }
 
     document.addEventListener("click", event => {
-      if (event.target.closest(".category-picker")) return;
-
-      if (isCategoryPickerOpen) {
+      if (!event.target.closest("#categoryPicker") && isCategoryPickerOpen) {
         closeCategoryPicker();
+      }
+
+      if (!event.target.closest("#ownerPicker") && isOwnerPickerOpen) {
+        closeOwnerPicker();
       }
 
       if (event.target.closest("#itemModal")) return;
