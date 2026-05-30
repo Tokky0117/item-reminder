@@ -236,6 +236,7 @@
       padding: 0 8px;
       transform: translateY(-50%);
       transition: background 0.18s ease, color 0.18s ease, opacity 0.18s ease, transform 0.08s ease;
+      font-size: 14px;
     }
 
     .shopping-button {
@@ -243,9 +244,8 @@
       background: transparent;
       color: var(--shopping-accent-color);
       border: none;
-      font-size: 14px;
       box-shadow: none;
-      padding: 0 4px;
+      padding: 0 8px;
     }
 
     .shopping-button:active {
@@ -257,28 +257,24 @@
       left: 0;
       background: transparent;
       color: var(--primary-color);
-      font-size: 15px;
     }
 
     .add-top-button {
       right: 0;
       background: transparent;
       color: var(--primary-color);
-      font-size: 14px;
     }
 
     .item-page-cancel-button {
       left: 0;
       background: transparent;
       color: var(--primary-color);
-      font-size: 15px;
     }
 
     .item-page-save-button {
       right: 0;
       background: transparent;
       color: var(--primary-color);
-      font-size: 15px;
     }
 
     .item-page-save-button:disabled {
@@ -393,11 +389,45 @@
 
     .category-heading {
       padding: 7px 5px 0;
+      line-height: 1.1;
+    }
+
+    .category-heading-button {
+      border: none;
+      background: transparent;
+      color: #777;
       font-size: 12px;
       font-weight: bold;
-      color: #777;
-      line-height: 1.1;
       letter-spacing: 0.03em;
+      padding: 2px 4px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      max-width: 100%;
+    }
+
+    .category-heading-button:active {
+      background: rgba(0,0,0,0.04);
+    }
+
+    .category-arrow {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.05);
+      color: #777;
+      font-size: 10px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.16s ease, background 0.16s ease;
+    }
+
+    .category-heading.collapsed .category-arrow {
+      transform: rotate(-90deg);
     }
 
     .pull-refresh {
@@ -1271,6 +1301,7 @@
 
     let shoppingModeItemIds = new Set();
     let activeOwnerTab = "all";
+    let collapsedCategories = new Set();
 
     let modalMode = "add";
     let editingItemId = null;
@@ -1470,6 +1501,22 @@
           return a.originalIndex - b.originalIndex;
         })
         .map(entry => entry.item);
+    }
+
+    function toggleCategoryCollapse(category) {
+      if (isModeSaving) return;
+
+      const key = category || "other";
+
+      if (collapsedCategories.has(key)) {
+        collapsedCategories.delete(key);
+      } else {
+        collapsedCategories.add(key);
+      }
+
+      closeItemActionMenu();
+      hideHelpBubble();
+      render();
     }
 
     function getSavingButtonHtml() {
@@ -1791,7 +1838,9 @@
           previousCategory = currentCategory;
         }
 
-        container.appendChild(createItemRow(item));
+        if (!collapsedCategories.has(currentCategory)) {
+          container.appendChild(createItemRow(item));
+        }
       });
 
       restoreItemsScroll(container, previousScrollTop, shouldInitializeScroll);
@@ -1989,8 +2038,22 @@
 
     function createCategoryHeading(category) {
       const heading = document.createElement("div");
-      heading.className = "category-heading";
-      heading.textContent = getCategoryName(category || "other");
+      const isCollapsed = collapsedCategories.has(category || "other");
+
+      heading.className = `category-heading ${isCollapsed ? "collapsed" : ""}`;
+
+      heading.innerHTML = `
+        <button
+          class="category-heading-button"
+          type="button"
+          onclick="toggleCategoryCollapse('${category || "other"}')"
+          aria-label="${getCategoryName(category || "other")}の表示切り替え"
+        >
+          <span class="category-arrow" aria-hidden="true">⌄</span>
+          <span>${getCategoryName(category || "other")}</span>
+        </button>
+      `;
+
       return heading;
     }
 
