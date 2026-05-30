@@ -22,7 +22,8 @@
       --shopping-bg-color: #fff7e8;
       --shopping-header-color: #fff0d8;
       --shopping-accent-color: #a55a00;
-      --shopping-button-bg: rgba(165, 90, 0, 0.14);
+      --shopping-button-bg: #fff0df;
+      --shopping-button-border: rgba(165, 90, 0, 0.34);
     }
 
     body {
@@ -108,7 +109,7 @@
     }
 
     .title-center {
-      max-width: calc(100vw - 150px);
+      max-width: calc(100vw - 160px);
       min-width: 0;
       text-align: center;
       border: none;
@@ -144,33 +145,31 @@
       position: absolute;
       top: -2px;
       border: none;
-      background: transparent;
       font-weight: bold;
       height: 36px;
-      padding: 0 8px;
-      border-radius: 10px;
-      transition: background 0.18s ease, color 0.18s ease, opacity 0.18s ease;
+      padding: 0 10px;
+      border-radius: 999px;
+      transition: background 0.18s ease, color 0.18s ease, opacity 0.18s ease, transform 0.08s ease;
     }
 
     .shopping-button {
       left: 0;
-      color: var(--primary-color);
+      background: var(--shopping-button-bg);
+      color: var(--shopping-accent-color);
+      border: 1px solid var(--shopping-button-border);
       font-size: 14px;
+      box-shadow: 0 2px 6px rgba(165, 90, 0, 0.14);
+    }
+
+    .shopping-button:active {
+      transform: scale(0.96);
     }
 
     .add-top-button {
       right: 0;
+      background: transparent;
       color: var(--primary-color);
       font-size: 16px;
-    }
-
-    .shopping-button.active {
-      background: rgba(0,122,255,0.12);
-    }
-
-    .app.shopping-mode .shopping-button.active {
-      background: var(--shopping-button-bg);
-      color: var(--shopping-accent-color);
     }
 
     .shopping-button:disabled,
@@ -409,13 +408,13 @@
     }
 
     .owner-mark {
-      width: 34px;
-      height: 34px;
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
-      background: #f2f2f7;
-      color: #555;
+      background: rgba(0,0,0,0.035);
+      color: #8a8a8e;
       font-weight: bold;
-      font-size: 15px;
+      font-size: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -459,31 +458,45 @@
 
     .inline-action-menu {
       position: absolute;
-      top: 0;
-      right: 38px;
-      display: flex;
-      gap: 5px;
-      align-items: flex-start;
-      padding: 0;
+      top: 38px;
+      right: 0;
+      width: 124px;
+      border-radius: 14px;
+      background: white;
+      border: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+      overflow: hidden;
       z-index: 20;
     }
 
     .inline-action-menu-button {
-      height: 30px;
-      min-width: 44px;
-      border: 1px solid rgba(0,0,0,0.08);
-      border-radius: 999px;
+      width: 100%;
+      height: 42px;
+      border: none;
       background: white;
-      color: var(--primary-color);
-      font-size: 12px;
+      color: #222;
+      font-size: 14px;
       font-weight: bold;
-      padding: 0 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.14);
-      white-space: nowrap;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      text-align: left;
     }
 
-    .inline-action-menu-button.danger {
-      color: var(--danger-color);
+    .inline-action-menu-button + .inline-action-menu-button {
+      border-top: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .inline-action-menu-icon {
+      width: 18px;
+      height: 18px;
+      stroke: #555;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      flex-shrink: 0;
     }
 
     .spare-badge {
@@ -532,35 +545,6 @@
       box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
       box-sizing: border-box;
       z-index: 50;
-    }
-
-    .undo-button {
-      width: 64px;
-      height: 54px;
-      border: none;
-      border-radius: 16px;
-      background: var(--bg-color);
-      color: var(--primary-color);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      padding: 0;
-    }
-
-    .undo-icon {
-      width: 32px;
-      height: 32px;
-      stroke: currentColor;
-      stroke-width: 3.2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      fill: none;
-    }
-
-    .undo-button:disabled {
-      color: #aaa;
-      opacity: 0.6;
     }
 
     .shopping-cancel-button {
@@ -614,10 +598,6 @@
     .purchase-complete-button:disabled .button-spinner {
       border-color: rgba(120,120,120,0.28);
       border-right-color: #777;
-    }
-
-    .app.shopping-mode .undo-button {
-      display: none;
     }
 
     .app.shopping-mode .shopping-cancel-button {
@@ -823,13 +803,6 @@
     <div id="items"></div>
 
     <div class="footer">
-      <button class="undo-button" id="undoButton" onclick="confirmUndo()" aria-label="ひとつ前に戻る" disabled>
-        <svg class="undo-icon" viewBox="0 0 40 40" aria-hidden="true">
-          <path d="M15 11 L8 18 L15 25"></path>
-          <path d="M9 18 H23 C29 18 33 22 33 27 C33 32 29 36 23 36 H17"></path>
-        </svg>
-      </button>
-
       <button class="shopping-cancel-button" id="shoppingCancelButton" onclick="openHomeCancelConfirm()" aria-label="買いものをキャンセル">キャンセル</button>
       <button class="purchase-complete-button" id="purchaseCompleteButton" onclick="openPurchaseConfirm()" aria-label="購入確定" disabled>購入確定</button>
     </div>
@@ -867,7 +840,7 @@
         <input
           id="modalName"
           type="text"
-          placeholder="例：トイレットペーパー"
+          placeholder="入力してください"
           oninput="validateItemModal()"
         >
       </div>
@@ -1001,7 +974,6 @@
     let modalIcon = "共";
     let modalCategory = "";
 
-    let previousItems = null;
     let modeStartItems = null;
     let pendingUpdateAction = null;
     let pendingConflictAction = null;
@@ -1152,22 +1124,6 @@
         .map(entry => entry.item);
     }
 
-    function rememberPreviousItems() {
-      previousItems = cloneItems(items);
-      updateUndoButton();
-    }
-
-    function clearPreviousItems() {
-      previousItems = null;
-      updateUndoButton();
-    }
-
-    function updateUndoButton() {
-      const button = document.getElementById("undoButton");
-      if (!button) return;
-      button.disabled = !previousItems || isModeSaving;
-    }
-
     function getSavingButtonHtml() {
       return `<span class="button-spinner" aria-hidden="true"></span><span>保存中…</span>`;
     }
@@ -1196,7 +1152,6 @@
 
     function setModeSaving(saving) {
       isModeSaving = saving;
-      updateUndoButton();
       updateActionButtons();
       renderOwnerTabs();
     }
@@ -1232,7 +1187,6 @@
       isModeSaving = false;
       modeStartItems = null;
       actionItemId = null;
-      clearPreviousItems();
       resetPullRefreshVisual();
     }
 
@@ -1271,7 +1225,6 @@
           shoppingModeItemIds.clear();
         }
 
-        clearPreviousItems();
         render();
         hideStartupScreen();
 
@@ -1419,7 +1372,6 @@
           isModeSaving = false;
           shoppingModeItemIds.clear();
           modeStartItems = null;
-          clearPreviousItems();
           resetPullRefreshVisual();
           render();
 
@@ -1448,7 +1400,6 @@
       isModeSaving = false;
       shoppingModeItemIds.clear();
       modeStartItems = null;
-      clearPreviousItems();
       resetPullRefreshVisual();
       render();
     }
@@ -1456,7 +1407,6 @@
     function render() {
       updateAppModeClasses();
       renderOwnerTabs();
-      updateUndoButton();
       updateActionButtons();
 
       const container = document.getElementById("items");
@@ -1507,7 +1457,6 @@
 
       app.classList.toggle("shopping-mode", shoppingMode);
 
-      shoppingButton.classList.toggle("active", shoppingMode);
       shoppingButton.disabled = isModeSaving;
 
       if (addButton) {
@@ -1743,6 +1692,27 @@
       `;
     }
 
+    function createPencilIcon() {
+      return `
+        <svg class="inline-action-menu-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 19L6.3 14.2L16.4 4.1L19.9 7.6L9.8 17.7L5 19Z"></path>
+          <path d="M14.8 5.7L18.3 9.2"></path>
+        </svg>
+      `;
+    }
+
+    function createTrashIcon() {
+      return `
+        <svg class="inline-action-menu-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 7H19"></path>
+          <path d="M9 7V5H15V7"></path>
+          <path d="M8 10V19"></path>
+          <path d="M16 10V19"></path>
+          <path d="M7 7L8 21H16L17 7"></path>
+        </svg>
+      `;
+    }
+
     function createItemContentHtml(item, index) {
       const hasNote = item.note.trim().length > 0;
       const isMenuOpen = actionItemId === item.id;
@@ -1757,12 +1727,6 @@
 
         ${!shoppingMode ? `
           <div class="item-action-wrap">
-            ${isMenuOpen ? `
-              <div class="inline-action-menu">
-                <button class="inline-action-menu-button" onclick="editActionItem(event, '${item.id}')">編集</button>
-                <button class="inline-action-menu-button danger" onclick="deleteActionItem(event, '${item.id}')">削除</button>
-              </div>
-            ` : ""}
             <button
               class="item-action-button"
               onclick="openItemActionMenu(event, '${item.id}')"
@@ -1771,6 +1735,18 @@
             >
               ⋯
             </button>
+            ${isMenuOpen ? `
+              <div class="inline-action-menu">
+                <button class="inline-action-menu-button" onclick="editActionItem(event, '${item.id}')">
+                  ${createPencilIcon()}
+                  <span>編集</span>
+                </button>
+                <button class="inline-action-menu-button" onclick="deleteActionItem(event, '${item.id}')">
+                  ${createTrashIcon()}
+                  <span>削除</span>
+                </button>
+              </div>
+            ` : ""}
           </div>
         ` : ""}
 
@@ -1805,7 +1781,6 @@
       if (index < 0 || !items[index]) return;
 
       closeItemActionMenu();
-      rememberPreviousItems();
       items[index].hasSpare = !items[index].hasSpare;
 
       if (shoppingMode) {
@@ -1822,7 +1797,6 @@
       closeItemActionMenu();
       shoppingMode = true;
       modeStartItems = cloneItems(items);
-      clearPreviousItems();
       resetPullRefreshVisual();
 
       shoppingModeItemIds = new Set(
@@ -1918,8 +1892,6 @@
 
       if (!name) return;
 
-      rememberPreviousItems();
-
       if (modalMode === "add") {
         addItemFromModal(name, note);
       }
@@ -2011,38 +1983,11 @@
     function confirmDeleteItem() {
       if (isModeSaving || !deletingItemId) return;
 
-      rememberPreviousItems();
       items = items.filter(item => item.id !== deletingItemId);
       deletingItemId = null;
 
       document.getElementById("deleteConfirmModal").classList.remove("show");
       saveImmediateChange();
-      render();
-    }
-
-    function confirmUndo() {
-      if (!previousItems || isModeSaving) return;
-
-      closeItemActionMenu();
-
-      const wasShoppingMode = shoppingMode;
-      const previousShoppingModeItemIds = new Set(shoppingModeItemIds);
-
-      items = cloneItems(previousItems);
-      previousItems = null;
-
-      shoppingMode = wasShoppingMode;
-
-      if (shoppingMode) {
-        shoppingModeItemIds = previousShoppingModeItemIds;
-      } else {
-        shoppingModeItemIds.clear();
-      }
-
-      if (!shoppingMode) {
-        saveImmediateChange();
-      }
-
       render();
     }
 
