@@ -487,10 +487,12 @@
     }
 
     .row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       position: relative;
-      overflow: hidden;
-      border-radius: 8px;
-      touch-action: pan-y;
+      overflow: visible;
+      border-radius: 0;
     }
 
     .row.swipe-open {
@@ -501,6 +503,15 @@
       text-align: center;
       color: #777;
       padding: 30px;
+    }
+
+    .swipe-frame {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      border-radius: 8px;
+      touch-action: pan-y;
     }
 
     .swipe-actions {
@@ -549,6 +560,7 @@
     }
 
     .item {
+      width: 100%;
       background: white;
       padding: 7px 10px;
       border-radius: 8px;
@@ -567,6 +579,10 @@
       z-index: 2;
       transition: transform 0.18s ease;
       will-change: transform;
+    }
+
+    .item.swiping {
+      transition: none;
     }
 
     .row.swipe-open .item {
@@ -1257,6 +1273,10 @@
     const PULL_TRIGGER_DISTANCE = 72;
     const PULL_MAX_DISTANCE = 96;
 
+    const SWIPE_ACTION_WIDTH = 116;
+    const SWIPE_OPEN_THRESHOLD = 32;
+    const SWIPE_CLOSE_THRESHOLD = 24;
+
     const OWNER_TABS = [
       { key: "共", full: "共同", short: "共" },
       { key: "み", full: "みゆう", short: "み" },
@@ -1300,8 +1320,11 @@
     let swipeStartY = 0;
     let swipeCurrentX = 0;
     let swipeCurrentY = 0;
+    let swipeBaseOffset = 0;
     let swipeMoved = false;
     let swipeCanceled = false;
+    let swipeFrameElement = null;
+    let swipeItemElement = null;
 
     let modalIcon = "共";
     let modalCategory = "other";
@@ -1414,7 +1437,7 @@
     function setOwnerTab(tabKey) {
       if (isModeSaving) return;
       activeOwnerTab = tabKey;
-      closeSwipedItem();
+      closeSwipedItemWithoutRender();
       hideHelpBubble();
       render();
     }
@@ -1510,7 +1533,7 @@
         collapsedCategories.add(key);
       }
 
-      closeSwipedItem();
+      closeSwipedItemWithoutRender();
       hideHelpBubble();
       render();
     }
@@ -2083,27 +2106,29 @@
       row.className = `row ${isOpen ? "swipe-open" : ""}`;
 
       row.innerHTML = `
-        <div class="swipe-actions">
-          <button class="swipe-action-button edit" onclick="editSwipedItem(event, '${item.id}')" aria-label="日用品を編集">
-            ${createPencilIcon("swipe-action-icon")}
-            <span>編集</span>
-          </button>
-          <button class="swipe-action-button delete" onclick="deleteSwipedItem(event, '${item.id}')" aria-label="日用品を削除">
-            ${createTrashIcon("swipe-action-icon")}
-            <span>削除</span>
-          </button>
-        </div>
-
         <div
-          class="item"
+          class="swipe-frame"
           ontouchstart="startItemSwipe(event, '${item.id}')"
           ontouchmove="moveItemSwipe(event)"
           ontouchend="endItemSwipe(event, '${item.id}')"
           ontouchcancel="cancelItemSwipe()"
           onclick="handleItemTap(event, '${item.id}')"
         >
-          ${createIconHtml(item)}
-          ${createItemContentHtml(item, index)}
+          <div class="swipe-actions">
+            <button class="swipe-action-button delete" onclick="deleteSwipedItem(event, '${item.id}')" aria-label="日用品を削除">
+              ${createTrashIcon("swipe-action-icon")}
+              <span>削除</span>
+            </button>
+            <button class="swipe-action-button edit" onclick="editSwipedItem(event, '${item.id}')" aria-label="日用品を編集">
+              ${createPencilIcon("swipe-action-icon")}
+              <span>編集</span>
+            </button>
+          </div>
+
+          <div class="item">
+            ${createIconHtml(item)}
+            ${createItemContentHtml(item, index)}
+          </div>
         </div>
       `;
 
@@ -2182,18 +2207,27 @@
       if (shoppingMode || isModeSaving) return;
       if (!event.touches || event.touches.length !== 1) return;
       if (event.target.closest(".spare-badge")) return;
+      if (event.target.closest(".swipe-action-button")) return;
+
+      swipeFrameElement = event.currentTarget;
+      swipeItemElement = swipeFrameElement.querySelector(".item");
+
+      if (!swipeItemElement) return;
 
       swipeItemId = id;
       swipeStartX = event.touches[0].clientX;
       swipeStartY = event.touches[0].clientY;
       swipeCurrentX = swipeStartX;
       swipeCurrentY = swipeStartY;
+      swipeBaseOffset = swipedItemId === id ? -SWIPE_ACTION_WIDTH : 0;
       swipeMoved = false;
       swipeCanceled = false;
+
+      swipeItemElement.classList.add("swiping");
     }
 
     function moveItemSwipe(event) {
-      if (!swipeItemId || swipeCanceled) return;
+      if (!swipeItemId || swipeCanceled || !swipeItemElement) return;
       if (!event.touches || event.touches.length !== 1) return;
 
       swipeCurrentX = event.touches[0].clientX;
@@ -2204,6 +2238,7 @@
 
       if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 8) {
         swipeCanceled = true;
+        resetSwipeVisual();
         return;
       }
 
@@ -2211,9 +2246,12 @@
         swipeMoved = true;
       }
 
-      if (deltaX < -8 || (swipedItemId === swipeItemId && deltaX > 8)) {
+      if (Math.abs(deltaX) > 8) {
         event.preventDefault();
       }
+
+      const offset = clamp(swipeBaseOffset + deltaX, -SWIPE_ACTION_WIDTH, 0);
+      swipeItemElement.style.transform = `translateX(${offset}px)`;
     }
 
     function endItemSwipe(event, id) {
@@ -2223,34 +2261,58 @@
       }
 
       const deltaX = swipeCurrentX - swipeStartX;
-      const shouldOpen = deltaX < -36;
-      const shouldClose = deltaX > 24;
 
       if (!shoppingMode && !isModeSaving && !swipeCanceled) {
-        if (shouldOpen) {
-          swipedItemId = id;
-          hideHelpBubble();
-          render();
-        } else if (shouldClose) {
-          closeSwipedItem();
+        if (swipeBaseOffset === 0) {
+          if (deltaX <= -SWIPE_OPEN_THRESHOLD) {
+            swipedItemId = id;
+          } else {
+            swipedItemId = null;
+          }
+        } else {
+          if (deltaX >= SWIPE_CLOSE_THRESHOLD) {
+            swipedItemId = null;
+          } else {
+            swipedItemId = id;
+          }
         }
       }
 
       cancelItemSwipe();
+      render();
     }
 
     function cancelItemSwipe() {
+      resetSwipeVisual();
+
       swipeItemId = null;
       swipeStartX = 0;
       swipeStartY = 0;
       swipeCurrentX = 0;
       swipeCurrentY = 0;
+      swipeBaseOffset = 0;
       swipeMoved = false;
       swipeCanceled = false;
+      swipeFrameElement = null;
+      swipeItemElement = null;
+    }
+
+    function resetSwipeVisual() {
+      if (swipeItemElement) {
+        swipeItemElement.classList.remove("swiping");
+        swipeItemElement.style.transform = "";
+      }
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
     }
 
     function handleItemTap(event, id) {
-      if (swipeMoved) return;
+      if (swipeMoved) {
+        event.stopPropagation();
+        return;
+      }
 
       if (swipedItemId && swipedItemId === id) {
         event.stopPropagation();
@@ -2266,16 +2328,20 @@
       render();
     }
 
+    function closeSwipedItemWithoutRender() {
+      swipedItemId = null;
+    }
+
     function editSwipedItem(event, id) {
       event.stopPropagation();
-      swipedItemId = null;
+      closeSwipedItemWithoutRender();
       render();
       openEditModal(id);
     }
 
     function deleteSwipedItem(event, id) {
       event.stopPropagation();
-      swipedItemId = null;
+      closeSwipedItemWithoutRender();
       render();
       openDeleteConfirm(id);
     }
@@ -2294,10 +2360,6 @@
         saveImmediateChange();
         render();
       }
-    }
-
-    function closeSwipedItemWithoutRender() {
-      swipedItemId = null;
     }
 
     function toggleShoppingMode() {
@@ -2791,7 +2853,7 @@
       if (event.target.closest("#conflictModal")) return;
       if (event.target.closest("#loadFailureModal")) return;
 
-      if (swipedItemId && !event.target.closest(".row")) {
+      if (swipedItemId && !event.target.closest(".swipe-frame")) {
         closeSwipedItem();
       }
 
