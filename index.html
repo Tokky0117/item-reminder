@@ -187,14 +187,22 @@
       margin: 0;
     }
 
+    .mode-status-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      margin-top: 4px;
+      min-height: 16px;
+    }
+
     .mode-label {
       display: none;
       text-align: center;
-      margin-top: 4px;
       font-size: 12px;
       font-weight: bold;
       letter-spacing: 0.04em;
-      min-height: 16px;
+      line-height: 16px;
     }
 
     .app.shopping-mode .mode-label {
@@ -204,8 +212,7 @@
 
     .shopping-button,
     .shopping-cancel-top-button,
-    .add-top-button,
-    .help-button {
+    .add-top-button {
       position: absolute;
       top: -2px;
       border: none;
@@ -250,16 +257,19 @@
 
     .help-button {
       display: none;
-      right: 0;
-      width: 34px;
-      height: 34px;
-      border: 1px solid rgba(154,100,0,0.18);
+      width: 17px;
+      height: 17px;
+      border: 1px solid rgba(154,100,0,0.22);
       border-radius: 50%;
-      background: rgba(255,255,255,0.72);
+      background: rgba(255,255,255,0.68);
       color: #9a6400;
-      font-size: 17px;
+      font-size: 11px;
       font-weight: bold;
       padding: 0;
+      line-height: 1;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
 
     .shopping-button:disabled,
@@ -274,9 +284,12 @@
       display: none;
     }
 
-    .app.shopping-mode .shopping-cancel-top-button,
-    .app.shopping-mode .help-button {
+    .app.shopping-mode .shopping-cancel-top-button {
       display: block;
+    }
+
+    .app.shopping-mode .help-button {
+      display: inline-flex;
     }
 
     .owner-tabs {
@@ -525,8 +538,8 @@
 
     .item-action-wrap {
       position: relative;
-      width: 32px;
-      height: 32px;
+      width: 30px;
+      height: 30px;
       flex-shrink: 0;
       display: flex;
       align-items: flex-start;
@@ -535,19 +548,19 @@
     }
 
     .item-action-button {
-      width: 32px;
-      height: 32px;
-      border: 1px solid #d1d1d6;
+      width: 30px;
+      height: 30px;
+      border: 1px solid transparent;
       border-radius: 50%;
-      background: #f2f2f7;
-      color: #444;
+      background: rgba(0,0,0,0.025);
+      color: #9a9a9f;
       font-weight: bold;
-      font-size: 20px;
+      font-size: 19px;
       line-height: 1;
       padding: 0;
       flex-shrink: 0;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-      transition: transform 0.08s ease, background 0.16s ease;
+      box-shadow: none;
+      transition: transform 0.08s ease, background 0.16s ease, color 0.16s ease;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -555,7 +568,8 @@
 
     .item-action-button:active {
       transform: scale(0.94);
-      background: #e5e5ea;
+      background: rgba(0,0,0,0.04);
+      color: #777;
     }
 
     .inline-action-menu {
@@ -611,24 +625,24 @@
       font-weight: bold;
       white-space: nowrap;
       transition: background 0.16s ease, color 0.16s ease, opacity 0.16s ease, transform 0.08s ease, box-shadow 0.16s ease;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.10);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     }
 
     .spare-badge:active {
-      transform: scale(0.94);
-      box-shadow: 0 1px 2px rgba(0,0,0,0.10);
+      transform: scale(0.95);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08);
     }
 
     .spare-badge.has-spare {
       background: #e5f7ea;
       color: #167a35;
-      border: 1px solid rgba(22,122,53,0.28);
+      border: 1px solid rgba(22,122,53,0.26);
     }
 
     .spare-badge.no-spare {
       background: #fff0df;
       color: #a55a00;
-      border: 1px solid rgba(165,90,0,0.34);
+      border: 1px solid rgba(165,90,0,0.32);
     }
 
     .spare-badge:disabled {
@@ -809,8 +823,7 @@
       margin-bottom: 5px;
     }
 
-    .modal input[type="text"],
-    .modal select {
+    .modal input[type="text"] {
       width: 100%;
       padding: 8px;
       border-radius: 8px;
@@ -819,6 +832,77 @@
       min-width: 0;
       box-sizing: border-box;
       background: white;
+    }
+
+    .category-picker {
+      position: relative;
+    }
+
+    .category-picker-button {
+      width: 100%;
+      height: 42px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      background: white;
+      color: #222;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-sizing: border-box;
+    }
+
+    .category-picker-arrow {
+      color: #777;
+      font-size: 14px;
+      line-height: 1;
+      margin-left: 8px;
+    }
+
+    .category-picker-menu {
+      display: none;
+      position: absolute;
+      top: 48px;
+      left: 0;
+      right: 0;
+      border-radius: 14px;
+      background: white;
+      border: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.22);
+      overflow: hidden;
+      z-index: 140;
+    }
+
+    .category-picker.open .category-picker-menu {
+      display: block;
+    }
+
+    .category-picker-option {
+      width: 100%;
+      height: 42px;
+      border: none;
+      background: white;
+      color: #222;
+      font-size: 14px;
+      font-weight: bold;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      text-align: left;
+    }
+
+    .category-picker-option + .category-picker-option {
+      border-top: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .category-picker-option.selected::after {
+      content: "✓";
+      margin-left: auto;
+      color: var(--primary-color);
+      font-weight: bold;
     }
 
     .owner-options {
@@ -917,11 +1001,13 @@
 
         <div class="title-center">
           <h1 id="appTitle">日用品リスト</h1>
-          <div class="mode-label" id="modeLabel"></div>
+          <div class="mode-status-row">
+            <div class="mode-label" id="modeLabel"></div>
+            <button class="help-button" onclick="toggleHelpBubble(event)" aria-label="ヘルプ">i</button>
+          </div>
         </div>
 
         <button class="add-top-button" onclick="openAddModal()" aria-label="日用品を追加">＋追加</button>
-        <button class="help-button" onclick="toggleHelpBubble(event)" aria-label="ヘルプ">i</button>
       </div>
 
       <div class="owner-tabs" id="ownerTabs" aria-label="担当タブ"></div>
@@ -955,14 +1041,13 @@
 
       <div class="field">
         <label>分類</label>
-        <select id="modalCategory" onchange="setModalCategory(this.value)">
-          <option value="">未選択</option>
-          <option value="food">飲食</option>
-          <option value="kitchen">キッチン</option>
-          <option value="bath">洗面・お風呂</option>
-          <option value="cleaning">洗濯・掃除</option>
-          <option value="other">その他</option>
-        </select>
+        <div class="category-picker" id="categoryPicker">
+          <button class="category-picker-button" type="button" onclick="toggleCategoryPicker(event)">
+            <span id="modalCategoryLabel">その他</span>
+            <span class="category-picker-arrow">⌄</span>
+          </button>
+          <div class="category-picker-menu" id="categoryPickerMenu"></div>
+        </div>
       </div>
 
       <div class="field">
@@ -1094,7 +1179,8 @@
     let deletingItemId = null;
     let actionItemId = null;
     let modalIcon = "共";
-    let modalCategory = "";
+    let modalCategory = "other";
+    let isCategoryPickerOpen = false;
 
     let modeStartItems = null;
     let pendingUpdateAction = null;
@@ -1989,15 +2075,16 @@
       modalMode = "add";
       editingItemId = null;
       modalIcon = "共";
-      modalCategory = "";
+      modalCategory = "other";
+      isCategoryPickerOpen = false;
 
       document.getElementById("itemModalTitle").textContent = "日用品を追加";
-      document.getElementById("modalCategory").value = "";
       document.getElementById("modalName").value = "";
       document.getElementById("modalNote").value = "";
       document.getElementById("modalConfirm").disabled = true;
 
       updateModalOwnerButtons();
+      renderCategoryPicker();
       document.getElementById("itemModal").classList.add("show");
 
       setTimeout(() => {
@@ -2019,14 +2106,15 @@
       editingItemId = id;
       modalIcon = item.icon || "共";
       modalCategory = item.category || "other";
+      isCategoryPickerOpen = false;
 
       document.getElementById("itemModalTitle").textContent = "日用品を編集";
-      document.getElementById("modalCategory").value = modalCategory;
       document.getElementById("modalName").value = item.name || "";
       document.getElementById("modalNote").value = item.note || "";
       document.getElementById("modalConfirm").disabled = !(item.name || "").trim();
 
       updateModalOwnerButtons();
+      renderCategoryPicker();
       document.getElementById("itemModal").classList.add("show");
 
       setTimeout(() => {
@@ -2037,6 +2125,7 @@
 
     function closeItemModal() {
       if (isModeSaving) return;
+      closeCategoryPicker();
       document.getElementById("itemModal").classList.remove("show");
     }
 
@@ -2048,7 +2137,52 @@
 
     function setModalCategory(category) {
       if (isModeSaving) return;
-      modalCategory = category;
+      modalCategory = category || "other";
+      isCategoryPickerOpen = false;
+      renderCategoryPicker();
+    }
+
+    function toggleCategoryPicker(event) {
+      if (event) {
+        event.stopPropagation();
+      }
+
+      if (isModeSaving) return;
+
+      isCategoryPickerOpen = !isCategoryPickerOpen;
+      renderCategoryPicker();
+    }
+
+    function closeCategoryPicker() {
+      if (!isCategoryPickerOpen) return;
+      isCategoryPickerOpen = false;
+      renderCategoryPicker();
+    }
+
+    function renderCategoryPicker() {
+      const picker = document.getElementById("categoryPicker");
+      const label = document.getElementById("modalCategoryLabel");
+      const menu = document.getElementById("categoryPickerMenu");
+
+      if (!picker || !label || !menu) return;
+
+      picker.classList.toggle("open", isCategoryPickerOpen);
+      label.textContent = getCategoryName(modalCategory || "other");
+
+      menu.innerHTML = "";
+
+      CATEGORY_LABELS.forEach(category => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `category-picker-option ${modalCategory === category.key ? "selected" : ""}`;
+        button.textContent = category.name;
+        button.onclick = event => {
+          event.stopPropagation();
+          setModalCategory(category.key);
+        };
+
+        menu.appendChild(button);
+      });
     }
 
     function updateModalOwnerButtons() {
@@ -2336,6 +2470,12 @@
     }
 
     document.addEventListener("click", event => {
+      if (event.target.closest(".category-picker")) return;
+
+      if (isCategoryPickerOpen) {
+        closeCategoryPicker();
+      }
+
       if (event.target.closest("#itemModal")) return;
       if (event.target.closest("#deleteConfirmModal")) return;
       if (event.target.closest("#purchaseConfirmModal")) return;
