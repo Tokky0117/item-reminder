@@ -26,6 +26,18 @@
       --shopping-button-border: rgba(165, 90, 0, 0.34);
     }
 
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:focus {
+      outline: none;
+    }
+
     body {
       font-family: sans-serif;
       background: var(--bg-color);
@@ -80,6 +92,7 @@
     }
 
     .startup-spinner {
+      display: none;
       width: 30px;
       height: 30px;
       border: 4px solid #d0d0d0;
@@ -87,6 +100,10 @@
       border-radius: 50%;
       box-sizing: border-box;
       animation: spin 0.9s linear infinite;
+    }
+
+    .startup-screen.show-spinner .startup-spinner {
+      display: block;
     }
 
     .header {
@@ -141,14 +158,14 @@
     }
 
     .shopping-button,
-    .add-top-button {
+    .shopping-cancel-top-button,
+    .add-top-button,
+    .help-button {
       position: absolute;
       top: -2px;
       border: none;
       font-weight: bold;
       height: 36px;
-      padding: 0 10px;
-      border-radius: 999px;
       transition: background 0.18s ease, color 0.18s ease, opacity 0.18s ease, transform 0.08s ease;
     }
 
@@ -158,6 +175,7 @@
       color: var(--shopping-accent-color);
       border: 1px solid var(--shopping-button-border);
       font-size: 14px;
+      border-radius: 999px;
       box-shadow: 0 2px 7px rgba(165, 90, 0, 0.18);
       padding: 0 11px 0 12px;
     }
@@ -166,21 +184,54 @@
       transform: scale(0.96);
     }
 
+    .shopping-cancel-top-button {
+      display: none;
+      left: 0;
+      background: transparent;
+      color: var(--primary-color);
+      font-size: 15px;
+      border-radius: 10px;
+      padding: 0 8px;
+    }
+
     .add-top-button {
       right: 0;
       background: transparent;
       color: var(--primary-color);
       font-size: 16px;
+      border-radius: 10px;
+      padding: 0 8px;
+    }
+
+    .help-button {
+      display: none;
+      right: 0;
+      width: 34px;
+      height: 34px;
+      border: 1px solid rgba(154,100,0,0.18);
+      border-radius: 50%;
+      background: rgba(255,255,255,0.72);
+      color: #9a6400;
+      font-size: 17px;
+      font-weight: bold;
+      padding: 0;
     }
 
     .shopping-button:disabled,
-    .add-top-button:disabled {
+    .shopping-cancel-top-button:disabled,
+    .add-top-button:disabled,
+    .help-button:disabled {
       opacity: 0.35;
     }
 
     .app.shopping-mode .shopping-button,
     .app.shopping-mode .add-top-button {
       display: none;
+    }
+
+    .app.shopping-mode .shopping-cancel-top-button,
+    .app.shopping-mode .help-button {
+      display: block;
     }
 
     .owner-tabs {
@@ -553,19 +604,6 @@
       z-index: 50;
     }
 
-    .shopping-cancel-button {
-      display: none;
-      height: 54px;
-      border: none;
-      border-radius: 16px;
-      background: transparent;
-      color: var(--primary-color);
-      font-size: 16px;
-      font-weight: bold;
-      padding: 0 8px;
-      flex-shrink: 0;
-    }
-
     .purchase-complete-button {
       display: none;
       height: 54px;
@@ -606,14 +644,6 @@
       border-right-color: #777;
     }
 
-    .app.shopping-mode .shopping-cancel-button {
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      width: auto;
-      min-width: 76px;
-    }
-
     .app.shopping-mode .purchase-complete-button {
       display: flex;
       flex: 1;
@@ -647,6 +677,47 @@
     .toast.show {
       opacity: 1;
       transform: translate(-50%, 0);
+    }
+
+    .help-bubble {
+      position: fixed;
+      top: calc(54px + env(safe-area-inset-top));
+      right: 12px;
+      width: min(280px, calc(100vw - 24px));
+      background: rgba(40, 40, 40, 0.92);
+      color: white;
+      border-radius: 14px;
+      padding: 10px 12px;
+      box-sizing: border-box;
+      font-size: 12px;
+      line-height: 1.45;
+      z-index: 160;
+      opacity: 0;
+      transform: translateY(-6px);
+      pointer-events: none;
+      transition: opacity 0.24s ease, transform 0.24s ease;
+      white-space: pre-line;
+    }
+
+    .help-bubble.show {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .help-bubble.hide {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+
+    .help-bubble::before {
+      content: "";
+      position: absolute;
+      top: -7px;
+      right: 16px;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 7px solid rgba(40, 40, 40, 0.92);
     }
 
     .modal-backdrop {
@@ -777,7 +848,6 @@
       white-space: normal;
     }
 
-    #modeHelpMessage,
     #loadFailureMessage {
       white-space: pre-line;
     }
@@ -794,13 +864,15 @@
     <div class="header">
       <div class="title-row">
         <button class="shopping-button" onclick="toggleShoppingMode()" aria-label="買いものリスト">買いもの ›</button>
+        <button class="shopping-cancel-top-button" id="shoppingCancelTopButton" onclick="openHomeCancelConfirm()" aria-label="買いものをキャンセル">キャンセル</button>
 
-        <button class="title-center" onclick="openModeHelp()" aria-label="ヘルプを表示">
+        <div class="title-center">
           <h1 id="appTitle">日用品リスト</h1>
           <div class="mode-label" id="modeLabel"></div>
-        </button>
+        </div>
 
         <button class="add-top-button" onclick="openAddModal()" aria-label="日用品を追加">＋追加</button>
+        <button class="help-button" onclick="toggleHelpBubble(event)" aria-label="ヘルプ">i</button>
       </div>
 
       <div class="owner-tabs" id="ownerTabs" aria-label="担当タブ"></div>
@@ -809,12 +881,15 @@
     <div id="items"></div>
 
     <div class="footer">
-      <button class="shopping-cancel-button" id="shoppingCancelButton" onclick="openHomeCancelConfirm()" aria-label="買いものをキャンセル">キャンセル</button>
       <button class="purchase-complete-button" id="purchaseCompleteButton" onclick="openPurchaseConfirm()" aria-label="購入確定" disabled>購入確定</button>
     </div>
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <div class="help-bubble" id="helpBubble">
+    <div id="helpBubbleText"></div>
+  </div>
 
   <div class="modal-backdrop" id="itemModal">
     <div class="modal">
@@ -900,16 +975,6 @@
     </div>
   </div>
 
-  <div class="modal-backdrop" id="modeHelpModal">
-    <div class="modal">
-      <h2 id="modeHelpTitle">ヘルプ</h2>
-      <div class="confirm-message" id="modeHelpMessage"></div>
-      <div class="modal-actions">
-        <button class="confirm-button" onclick="closeModeHelp()">OK</button>
-      </div>
-    </div>
-  </div>
-
   <div class="modal-backdrop" id="updateRetryModal">
     <div class="modal">
       <h2>更新失敗</h2>
@@ -967,6 +1032,8 @@
 
     let items = [];
     let toastTimer = null;
+    let helpBubbleTimer = null;
+    let startupSpinnerTimer = null;
 
     let shoppingMode = false;
 
@@ -1020,10 +1087,24 @@
       toast.classList.remove("show");
     }
 
+    function startStartupSpinnerTimer() {
+      const screen = document.getElementById("startupScreen");
+      if (!screen) return;
+
+      clearTimeout(startupSpinnerTimer);
+
+      startupSpinnerTimer = setTimeout(() => {
+        if (isInitialLoading) {
+          screen.classList.add("show-spinner");
+        }
+      }, 3000);
+    }
+
     function hideStartupScreen() {
       if (!isInitialLoading) return;
 
       isInitialLoading = false;
+      clearTimeout(startupSpinnerTimer);
 
       const screen = document.getElementById("startupScreen");
       if (!screen) return;
@@ -1056,6 +1137,7 @@
       if (isModeSaving) return;
       activeOwnerTab = tabKey;
       closeItemActionMenu();
+      hideHelpBubble();
       render();
     }
 
@@ -1136,8 +1218,9 @@
 
     function updateActionButtons() {
       const purchaseCompleteButton = document.getElementById("purchaseCompleteButton");
-      const cancelButton = document.getElementById("shoppingCancelButton");
+      const cancelButton = document.getElementById("shoppingCancelTopButton");
       const addButton = document.querySelector(".add-top-button");
+      const helpButton = document.querySelector(".help-button");
       const hasChanges = hasModeChanges();
 
       if (cancelButton) {
@@ -1146,6 +1229,10 @@
 
       if (addButton) {
         addButton.disabled = isModeSaving;
+      }
+
+      if (helpButton) {
+        helpButton.disabled = isModeSaving;
       }
 
       if (purchaseCompleteButton) {
@@ -1193,6 +1280,7 @@
       isModeSaving = false;
       modeStartItems = null;
       actionItemId = null;
+      hideHelpBubble();
       resetPullRefreshVisual();
     }
 
@@ -1378,6 +1466,7 @@
           isModeSaving = false;
           shoppingModeItemIds.clear();
           modeStartItems = null;
+          hideHelpBubble();
           resetPullRefreshVisual();
           render();
 
@@ -1406,6 +1495,7 @@
       isModeSaving = false;
       shoppingModeItemIds.clear();
       modeStartItems = null;
+      hideHelpBubble();
       resetPullRefreshVisual();
       render();
     }
@@ -1458,12 +1548,19 @@
       const app = document.getElementById("app");
       const appTitle = document.getElementById("appTitle");
       const shoppingButton = document.querySelector(".shopping-button");
+      const cancelButton = document.getElementById("shoppingCancelTopButton");
       const addButton = document.querySelector(".add-top-button");
       const modeLabel = document.getElementById("modeLabel");
 
       app.classList.toggle("shopping-mode", shoppingMode);
 
-      shoppingButton.disabled = isModeSaving;
+      if (shoppingButton) {
+        shoppingButton.disabled = isModeSaving;
+      }
+
+      if (cancelButton) {
+        cancelButton.disabled = isModeSaving;
+      }
 
       if (addButton) {
         addButton.disabled = isModeSaving;
@@ -1787,6 +1884,7 @@
       if (index < 0 || !items[index]) return;
 
       closeItemActionMenu();
+      hideHelpBubble();
       items[index].hasSpare = !items[index].hasSpare;
 
       if (shoppingMode) {
@@ -1801,6 +1899,8 @@
       if (isModeSaving) return;
 
       closeItemActionMenu();
+      hideHelpBubble();
+
       shoppingMode = true;
       modeStartItems = cloneItems(items);
       resetPullRefreshVisual();
@@ -1817,7 +1917,8 @@
     function openAddModal() {
       if (shoppingMode || isModeSaving) return;
 
-      closeItemActionMenu();
+      actionItemId = null;
+      hideHelpBubble();
 
       modalMode = "add";
       editingItemId = null;
@@ -1834,12 +1935,16 @@
       document.getElementById("itemModal").classList.add("show");
 
       setTimeout(() => {
-        document.getElementById("modalName").focus();
-      }, 100);
+        const input = document.getElementById("modalName");
+        if (input) input.focus();
+      }, 120);
     }
 
     function openEditModal(id) {
       if (isModeSaving) return;
+
+      actionItemId = null;
+      hideHelpBubble();
 
       const item = items.find(item => item.id === id);
       if (!item) return;
@@ -1859,8 +1964,9 @@
       document.getElementById("itemModal").classList.add("show");
 
       setTimeout(() => {
-        document.getElementById("modalName").focus();
-      }, 100);
+        const input = document.getElementById("modalName");
+        if (input) input.focus();
+      }, 120);
     }
 
     function closeItemModal() {
@@ -1942,6 +2048,7 @@
       if (shoppingMode || isModeSaving) return;
 
       event.stopPropagation();
+      hideHelpBubble();
       actionItemId = actionItemId === id ? null : id;
       render();
     }
@@ -1999,6 +2106,7 @@
 
     function openPurchaseConfirm() {
       if (!shoppingMode || !hasModeChanges() || isModeSaving) return;
+      hideHelpBubble();
       document.getElementById("purchaseConfirmModal").classList.add("show");
     }
 
@@ -2016,6 +2124,8 @@
     function openHomeCancelConfirm() {
       if (isModeSaving) return;
       if (!shoppingMode) return;
+
+      hideHelpBubble();
 
       if (!hasModeChanges()) {
         exitModeWithoutSaving();
@@ -2047,35 +2157,55 @@
       exitModeWithoutSaving();
     }
 
-    function openModeHelp() {
-      if (isModeSaving) return;
+    function toggleHelpBubble(event) {
+      if (event) {
+        event.stopPropagation();
+      }
+
+      if (!shoppingMode || isModeSaving) return;
+
+      const bubble = document.getElementById("helpBubble");
+      const text = document.getElementById("helpBubbleText");
+      if (!bubble || !text) return;
+
+      if (bubble.classList.contains("show")) {
+        hideHelpBubble();
+        return;
+      }
 
       closeItemActionMenu();
 
-      const title = document.getElementById("modeHelpTitle");
-      const message = document.getElementById("modeHelpMessage");
+      text.textContent =
+        "在庫がない日用品だけを表示します。\n購入した日用品を「購入」に切り替え、購入確定してください。";
 
-      if (!title || !message) return;
+      clearTimeout(helpBubbleTimer);
+      bubble.classList.remove("hide");
+      bubble.classList.add("show");
 
-      if (shoppingMode) {
-        title.textContent = "買いものモード";
-        message.textContent =
-          "日用品の在庫がないものを表示します。\n購入した日用品を「購入」に切り替え、購入確定してください。";
-      } else {
-        title.textContent = "日用品リスト";
-        message.textContent =
-          "日用品の在庫を管理するリストです。\n在庫の有無を確認・変更できます。\n日用品の追加・編集・削除もできます。";
-      }
-
-      document.getElementById("modeHelpModal").classList.add("show");
+      helpBubbleTimer = setTimeout(() => {
+        hideHelpBubble();
+      }, 10000);
     }
 
-    function closeModeHelp() {
-      document.getElementById("modeHelpModal").classList.remove("show");
+    function hideHelpBubble() {
+      const bubble = document.getElementById("helpBubble");
+      if (!bubble) return;
+
+      clearTimeout(helpBubbleTimer);
+
+      if (!bubble.classList.contains("show")) return;
+
+      bubble.classList.add("hide");
+      bubble.classList.remove("show");
+
+      setTimeout(() => {
+        bubble.classList.remove("hide");
+      }, 260);
     }
 
     function openUpdateRetryModal() {
       hideToast();
+      hideHelpBubble();
       resetPullRefreshVisual();
       document.getElementById("updateRetryModal").classList.add("show");
     }
@@ -2096,6 +2226,7 @@
 
     function openConflictModal() {
       hideToast();
+      hideHelpBubble();
       resetPullRefreshVisual();
       document.getElementById("conflictModal").classList.add("show");
     }
@@ -2126,6 +2257,7 @@
 
       isLoadFailureModalOpen = true;
       hideToast();
+      hideHelpBubble();
       resetPullRefreshVisual();
 
       document.getElementById("loadFailureMessage").textContent = message;
@@ -2138,11 +2270,24 @@
     }
 
     document.addEventListener("click", event => {
-      if (!actionItemId) return;
-      if (event.target.closest(".item-action-wrap")) return;
-      closeItemActionMenu();
+      if (event.target.closest("#itemModal")) return;
+      if (event.target.closest("#deleteConfirmModal")) return;
+      if (event.target.closest("#purchaseConfirmModal")) return;
+      if (event.target.closest("#homeCancelConfirmModal")) return;
+      if (event.target.closest("#updateRetryModal")) return;
+      if (event.target.closest("#conflictModal")) return;
+      if (event.target.closest("#loadFailureModal")) return;
+
+      if (actionItemId && !event.target.closest(".item-action-wrap")) {
+        closeItemActionMenu();
+      }
+
+      if (!event.target.closest(".help-bubble") && !event.target.closest(".help-button")) {
+        hideHelpBubble();
+      }
     });
 
+    startStartupSpinnerTimer();
     setupPullToRefresh();
     loadItems();
 
