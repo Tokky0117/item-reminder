@@ -187,6 +187,9 @@
       display: flex;
       gap: 6px;
       margin-top: 10px;
+      padding: 2px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.04);
     }
 
     .app.shopping-mode .owner-tabs {
@@ -198,11 +201,13 @@
       min-width: 0;
       height: 34px;
       border-radius: 999px;
-      border: 1px solid rgba(0,0,0,0.06);
+      border: 1px solid transparent;
+      background: transparent;
+      color: #666;
       font-size: 13px;
       font-weight: bold;
       padding: 0 8px;
-      transition: flex 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease;
+      transition: flex 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -214,34 +219,26 @@
 
     .owner-tab.active {
       flex: 1.8;
-      border-width: 2px;
+      background: white;
+      color: #111;
+      border-color: rgba(0,0,0,0.06);
       box-shadow: 0 2px 7px rgba(0,0,0,0.12);
     }
 
-    .owner-tab.stock-ok {
-      background: #e5f7ea;
-      color: #167a35;
-      border-color: rgba(22,122,53,0.24);
-    }
-
-    .owner-tab.stock-ng {
-      background: #fff0df;
-      color: #a55a00;
-      border-color: rgba(165,90,0,0.28);
-    }
-
+    .owner-tab.stock-ok,
+    .owner-tab.stock-ng,
     .owner-tab.empty {
-      background: #eeeeee;
-      color: #777;
+      background: transparent;
+      color: #666;
+      border-color: transparent;
+    }
+
+    .owner-tab.active.stock-ok,
+    .owner-tab.active.stock-ng,
+    .owner-tab.active.empty {
+      background: white;
+      color: #111;
       border-color: rgba(0,0,0,0.06);
-    }
-
-    .owner-tab.active.stock-ok {
-      border-color: #43a85f;
-    }
-
-    .owner-tab.active.stock-ng {
-      border-color: #c97916;
     }
 
     #items {
@@ -411,17 +408,29 @@
       flex-shrink: 0;
     }
 
-    .icon-button {
+    .owner-mark {
       width: 34px;
       height: 34px;
-      border: 1px solid #d1d1d6;
       border-radius: 50%;
       background: #f2f2f7;
-      color: #333;
+      color: #555;
       font-weight: bold;
       font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
-      padding: 0;
+    }
+
+    .item-action-wrap {
+      position: relative;
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      z-index: 5;
     }
 
     .item-action-button {
@@ -434,15 +443,47 @@
       font-weight: bold;
       font-size: 20px;
       line-height: 1;
-      padding: 0 0 4px;
+      padding: 0;
       flex-shrink: 0;
       box-shadow: 0 1px 3px rgba(0,0,0,0.08);
       transition: transform 0.08s ease, background 0.16s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .item-action-button:active {
       transform: scale(0.94);
       background: #e5e5ea;
+    }
+
+    .inline-action-menu {
+      position: absolute;
+      top: 0;
+      right: 38px;
+      display: flex;
+      gap: 5px;
+      align-items: flex-start;
+      padding: 0;
+      z-index: 20;
+    }
+
+    .inline-action-menu-button {
+      height: 30px;
+      min-width: 44px;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 999px;
+      background: white;
+      color: var(--primary-color);
+      font-size: 12px;
+      font-weight: bold;
+      padding: 0 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+      white-space: nowrap;
+    }
+
+    .inline-action-menu-button.danger {
+      color: var(--danger-color);
     }
 
     .spare-badge {
@@ -493,8 +534,7 @@
       z-index: 50;
     }
 
-    .undo-button,
-    .home-button {
+    .undo-button {
       width: 64px;
       height: 54px;
       border: none;
@@ -508,12 +548,7 @@
       padding: 0;
     }
 
-    .home-button {
-      display: none;
-    }
-
-    .undo-icon,
-    .home-icon {
+    .undo-icon {
       width: 32px;
       height: 32px;
       stroke: currentColor;
@@ -523,10 +558,22 @@
       fill: none;
     }
 
-    .undo-button:disabled,
-    .home-button:disabled {
+    .undo-button:disabled {
       color: #aaa;
       opacity: 0.6;
+    }
+
+    .shopping-cancel-button {
+      display: none;
+      height: 54px;
+      border: none;
+      border-radius: 16px;
+      background: transparent;
+      color: var(--primary-color);
+      font-size: 16px;
+      font-weight: bold;
+      padding: 0 8px;
+      flex-shrink: 0;
     }
 
     .purchase-complete-button {
@@ -569,16 +616,23 @@
       border-right-color: #777;
     }
 
-    .app.shopping-mode .undo-button,
-    .app.shopping-mode .home-button,
+    .app.shopping-mode .undo-button {
+      display: none;
+    }
+
+    .app.shopping-mode .shopping-cancel-button {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      width: auto;
+      min-width: 76px;
+    }
+
     .app.shopping-mode .purchase-complete-button {
       display: flex;
       flex: 1;
       width: auto;
       min-width: 0;
-    }
-
-    .app.shopping-mode .purchase-complete-button {
       align-items: center;
       justify-content: center;
     }
@@ -640,35 +694,6 @@
       font-size: 19px;
       text-align: center;
       line-height: 1.3;
-    }
-
-    .action-sheet {
-      width: 100%;
-      max-width: 330px;
-      background: white;
-      border-radius: 18px;
-      padding: 8px;
-      box-sizing: border-box;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
-    }
-
-    .action-sheet-button {
-      width: 100%;
-      height: 48px;
-      border: none;
-      background: white;
-      border-radius: 12px;
-      font-size: 17px;
-      font-weight: bold;
-      color: var(--primary-color);
-    }
-
-    .action-sheet-button.danger {
-      color: var(--danger-color);
-    }
-
-    .action-sheet-button + .action-sheet-button {
-      border-top: 1px solid rgba(0,0,0,0.06);
     }
 
     .field {
@@ -733,6 +758,11 @@
     .cancel-button {
       background: #eeeeee;
       color: #333;
+    }
+
+    .item-modal-cancel-button {
+      background: transparent;
+      color: var(--primary-color);
     }
 
     .confirm-button {
@@ -800,14 +830,7 @@
         </svg>
       </button>
 
-      <button class="home-button" id="homeButton" onclick="openHomeCancelConfirm()" aria-label="ホーム">
-        <svg class="home-icon" viewBox="0 0 40 40" aria-hidden="true">
-          <path d="M7 19L20 8L33 19"></path>
-          <path d="M11 18V33H29V18"></path>
-          <path d="M17 33V23H23V33"></path>
-        </svg>
-      </button>
-
+      <button class="shopping-cancel-button" id="shoppingCancelButton" onclick="openHomeCancelConfirm()" aria-label="買いものをキャンセル">キャンセル</button>
       <button class="purchase-complete-button" id="purchaseCompleteButton" onclick="openPurchaseConfirm()" aria-label="購入確定" disabled>購入確定</button>
     </div>
   </div>
@@ -859,16 +882,9 @@
       </div>
 
       <div class="modal-actions">
-        <button class="cancel-button" onclick="closeItemModal()">キャンセル</button>
+        <button class="cancel-button item-modal-cancel-button" onclick="closeItemModal()">キャンセル</button>
         <button class="confirm-button" id="modalConfirm" onclick="confirmItemModal()" disabled>決定</button>
       </div>
-    </div>
-  </div>
-
-  <div class="modal-backdrop" id="itemActionModal" onclick="closeItemActionMenuByBackdrop(event)">
-    <div class="action-sheet">
-      <button class="action-sheet-button" onclick="editSelectedItemFromMenu()">編集</button>
-      <button class="action-sheet-button danger" onclick="deleteSelectedItemFromMenu()">削除</button>
     </div>
   </div>
 
@@ -1061,6 +1077,7 @@
     function setOwnerTab(tabKey) {
       if (isModeSaving) return;
       activeOwnerTab = tabKey;
+      closeItemActionMenu();
       render();
     }
 
@@ -1157,12 +1174,12 @@
 
     function updateActionButtons() {
       const purchaseCompleteButton = document.getElementById("purchaseCompleteButton");
-      const homeButton = document.getElementById("homeButton");
+      const cancelButton = document.getElementById("shoppingCancelButton");
       const addButton = document.querySelector(".add-top-button");
       const hasChanges = hasModeChanges();
 
-      if (homeButton) {
-        homeButton.disabled = isModeSaving;
+      if (cancelButton) {
+        cancelButton.disabled = isModeSaving;
       }
 
       if (addButton) {
@@ -1192,19 +1209,10 @@
         .replaceAll(">", "&gt;");
     }
 
-    function getIconClass(icon) {
-      return "icon-neutral";
-    }
-
     function getOwnerName(icon) {
       if (icon === "か") return "かずまさ";
       if (icon === "み") return "みゆう";
       return "共同";
-    }
-
-    function showOwnerToast(icon) {
-      if (isModeSaving) return;
-      showToast("担当：" + getOwnerName(icon));
     }
 
     function normalizeItems(data) {
@@ -1223,6 +1231,7 @@
       shoppingMode = false;
       isModeSaving = false;
       modeStartItems = null;
+      actionItemId = null;
       clearPreviousItems();
       resetPullRefreshVisual();
     }
@@ -1727,21 +1736,16 @@
     function createIconHtml(item) {
       return `
         <div class="icon-wrap">
-          <button
-            class="icon-button ${getIconClass(item.icon)}"
-            type="button"
-            onclick="showOwnerToast('${item.icon}')"
-            aria-label="担当：${getOwnerName(item.icon)}"
-            ${isModeSaving ? "disabled" : ""}
-          >
+          <div class="owner-mark" aria-label="担当：${getOwnerName(item.icon)}">
             ${item.icon}
-          </button>
+          </div>
         </div>
       `;
     }
 
     function createItemContentHtml(item, index) {
       const hasNote = item.note.trim().length > 0;
+      const isMenuOpen = actionItemId === item.id;
 
       return `
         <div class="text-area ${hasNote ? "" : "no-note"}">
@@ -1752,14 +1756,22 @@
         </div>
 
         ${!shoppingMode ? `
-          <button
-            class="item-action-button"
-            onclick="openItemActionMenu('${item.id}')"
-            aria-label="編集または削除"
-            ${isModeSaving ? "disabled" : ""}
-          >
-            …
-          </button>
+          <div class="item-action-wrap">
+            ${isMenuOpen ? `
+              <div class="inline-action-menu">
+                <button class="inline-action-menu-button" onclick="editActionItem(event, '${item.id}')">編集</button>
+                <button class="inline-action-menu-button danger" onclick="deleteActionItem(event, '${item.id}')">削除</button>
+              </div>
+            ` : ""}
+            <button
+              class="item-action-button"
+              onclick="openItemActionMenu(event, '${item.id}')"
+              aria-label="編集または削除"
+              ${isModeSaving ? "disabled" : ""}
+            >
+              ⋯
+            </button>
+          </div>
         ` : ""}
 
         ${createSpareBadgeHtml(item, index)}
@@ -1792,6 +1804,7 @@
       if (isModeSaving) return;
       if (index < 0 || !items[index]) return;
 
+      closeItemActionMenu();
       rememberPreviousItems();
       items[index].hasSpare = !items[index].hasSpare;
 
@@ -1806,6 +1819,7 @@
     function toggleShoppingMode() {
       if (isModeSaving) return;
 
+      closeItemActionMenu();
       shoppingMode = true;
       modeStartItems = cloneItems(items);
       clearPreviousItems();
@@ -1822,6 +1836,8 @@
 
     function openAddModal() {
       if (shoppingMode || isModeSaving) return;
+
+      closeItemActionMenu();
 
       modalMode = "add";
       editingItemId = null;
@@ -1944,39 +1960,32 @@
       });
     }
 
-    function openItemActionMenu(id) {
+    function openItemActionMenu(event, id) {
       if (shoppingMode || isModeSaving) return;
 
-      actionItemId = id;
-      document.getElementById("itemActionModal").classList.add("show");
+      event.stopPropagation();
+      actionItemId = actionItemId === id ? null : id;
+      render();
     }
 
     function closeItemActionMenu() {
-      document.getElementById("itemActionModal").classList.remove("show");
+      if (!actionItemId) return;
       actionItemId = null;
+      render();
     }
 
-    function closeItemActionMenuByBackdrop(event) {
-      if (event.target === event.currentTarget) {
-        closeItemActionMenu();
-      }
+    function editActionItem(event, id) {
+      event.stopPropagation();
+      actionItemId = null;
+      render();
+      openEditModal(id);
     }
 
-    function editSelectedItemFromMenu() {
-      const id = actionItemId;
-      closeItemActionMenu();
-      if (id) {
-        openEditModal(id);
-      }
-    }
-
-    function deleteSelectedItemFromMenu() {
-      const id = actionItemId;
-      closeItemActionMenu();
-
-      if (id) {
-        openDeleteConfirm(id);
-      }
+    function deleteActionItem(event, id) {
+      event.stopPropagation();
+      actionItemId = null;
+      render();
+      openDeleteConfirm(id);
     }
 
     function openDeleteConfirm(id) {
@@ -2013,6 +2022,8 @@
 
     function confirmUndo() {
       if (!previousItems || isModeSaving) return;
+
+      closeItemActionMenu();
 
       const wasShoppingMode = shoppingMode;
       const previousShoppingModeItemIds = new Set(shoppingModeItemIds);
@@ -2087,6 +2098,8 @@
 
     function openModeHelp() {
       if (isModeSaving) return;
+
+      closeItemActionMenu();
 
       const title = document.getElementById("modeHelpTitle");
       const message = document.getElementById("modeHelpMessage");
@@ -2172,6 +2185,12 @@
       isLoadFailureModalOpen = false;
       document.getElementById("loadFailureModal").classList.remove("show");
     }
+
+    document.addEventListener("click", event => {
+      if (!actionItemId) return;
+      if (event.target.closest(".item-action-wrap")) return;
+      closeItemActionMenu();
+    });
 
     setupPullToRefresh();
     loadItems();
