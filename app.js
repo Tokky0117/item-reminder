@@ -1,5 +1,10 @@
-const APP_VERSION = "1.0.0";
+// ========================================
+// 基本設定
+// ========================================
+const APP_VERSION = "2.1.0";
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxDuS5ZIUcb6ifMwJ5S86CZrV7YCnMsolM0lKbw7p71CK2mn_lWtT1LRzt9iIGpX04h/exec";
+
+const SAVE_PAYLOAD_WARNING_LENGTH = 6000;
 
 const REFRESH_OFFSET = 56;
 const PULL_TRIGGER_DISTANCE = 72;
@@ -8,13 +13,17 @@ const PULL_MAX_DISTANCE = 96;
 const SWIPE_ACTION_WIDTH = 124;
 const SWIPE_OPEN_THRESHOLD = 32;
 const SWIPE_CLOSE_THRESHOLD = 24;
+const BUTTON_TAP_MOVE_CANCEL_DISTANCE = 12;
+const SPARE_SAVE_DEBOUNCE_MS = 800;
+const SAVE_TIMEOUT_MS = 15000;
 
 const REORDER_HOLD_MS = 520;
+const COPY_FEEDBACK_MS = 1400;
 const REORDER_CANCEL_MOVE = 8;
 const REORDER_STEP_DISTANCE = 44;
 const REORDER_AUTO_SCROLL_ZONE = 64;
 const REORDER_AUTO_SCROLL_MAX_SPEED = 9;
-const ORDER_STEP = 10;
+const ORDER_STEP = 1;
 
 const OWNER_TABS = [
   { key: "共", full: "共同", short: "共" },
@@ -37,9 +46,13 @@ const CATEGORY_LABELS = [
   { key: "other", name: "その他" }
 ];
 
+// ========================================
+// 状態管理
+// ========================================
 let items = [];
 let toastTimer = null;
 let startupToastTimer = null;
+let copyButtonFeedbackTimer = null;
 let itemModalCloseTimer = null;
 let reorderHoldTimer = null;
 
@@ -95,6 +108,12 @@ let serverVersion = 0;
 
 let isImmediateSaveRunning = false;
 let immediateSaveQueued = false;
+let immediateSaveQueue = [];
+let pendingSpareChanges = new Map();
+let spareSaveTimer = null;
+let isSpareBatchSaveRunning = false;
+let spareBatchSavePromise = null;
+let spareFlushDeferredUntilImmediateSave = false;
 let isModeSaving = false;
 
 let isRefreshing = false;
@@ -106,17 +125,254 @@ let pullDistance = 0;
 let isPulling = false;
 
 let isLoadFailureModalOpen = false;
+let isConflictReloading = false;
+let lastSavePayloadLength = 0;
 
+let safeActionTouch = null;
+let suppressNativeClickUntil = 0;
+
+
+// ========================================
+// 共通タッチ判定
+// ========================================
+function getActionElementFromEvent(event) {
+  if (!event || !event.target || typeof event.target.closest !== "function") return null;
+  return event.target.closest("[data-action]");
+}
+
+function isActionElementDisabled(element) {
+  if (!element) return true;
+  if (element.disabled) return true;
+  if (element.getAttribute("aria-disabled") === "true") return true;
+  return false;
+}
+
+function isTouchInsideElement(touch, element) {
+  if (!touch || !element) return false;
+  const endElement = document.elementFromPoint(touch.clientX, touch.clientY);
+  return !!(endElement && element.contains(endElement));
+}
+
+function getActionEventProxy(event) {
+  return {
+    originalEvent: event,
+    preventDefault() {
+      if (event && typeof event.preventDefault === "function" && event.cancelable) {
+        event.preventDefault();
+      }
+    },
+    stopPropagation() {
+      if (event && typeof event.stopPropagation === "function") {
+        event.stopPropagation();
+      }
+    },
+    stopImmediatePropagation() {
+      if (event && typeof event.stopImmediatePropagation === "function") {
+        event.stopImmediatePropagation();
+      }
+    }
+  };
+}
+
+function executeSafeAction(element, event) {
+  if (!element || isActionElementDisabled(element)) return;
+  if (isConflictReloading && !element.closest("#conflictModal")) return;
+  if (isRefreshing && !element.closest(".modal")) return;
+
+  const action = element.dataset.action;
+  const safeEvent = getActionEventProxy(event);
+
+  switch (action) {
+    case "start-title":
+      startFromTitleScreen();
+      break;
+    case "toggle-shopping":
+      toggleShoppingMode();
+      break;
+    case "open-home-cancel":
+      openHomeCancelConfirm();
+      break;
+    case "open-add":
+      openAddModal();
+      break;
+    case "copy-shopping":
+      copyShoppingList(safeEvent);
+      break;
+    case "open-purchase-confirm":
+      openPurchaseConfirm();
+      break;
+    case "hide-toast":
+      hideToast();
+      break;
+    case "close-item-modal":
+      closeItemModal();
+      break;
+    case "toggle-category-picker":
+      toggleCategoryPicker(safeEvent);
+      break;
+    case "toggle-owner-picker":
+      toggleOwnerPicker(safeEvent);
+      break;
+    case "confirm-item-modal":
+      confirmItemModal();
+      break;
+    case "close-delete-confirm":
+      closeDeleteConfirm();
+      break;
+    case "confirm-delete-item":
+      confirmDeleteItem();
+      break;
+    case "close-purchase-confirm":
+      closePurchaseConfirm();
+      break;
+    case "confirm-purchase-complete":
+      confirmPurchaseComplete();
+      break;
+    case "close-home-cancel-confirm":
+      closeHomeCancelConfirm();
+      break;
+    case "confirm-home-cancel":
+      confirmHomeCancel();
+      break;
+    case "cancel-pending-update":
+      cancelPendingUpdate();
+      break;
+    case "retry-pending-update":
+      retryPendingUpdate();
+      break;
+    case "load-latest-conflict":
+      loadLatestFromConflict();
+      break;
+    case "force-pending-conflict":
+      forcePendingConflictSave();
+      break;
+    case "return-title-load-failure":
+      returnToTitleFromLoadFailure();
+      break;
+    case "retry-load-failure":
+      retryLoadFromFailure();
+      break;
+    case "set-owner-tab":
+      setOwnerTab(element.dataset.owner || "all");
+      break;
+    case "toggle-category-collapse":
+      toggleCategoryCollapse(element.dataset.category || "other");
+      break;
+    case "edit-swiped-item":
+      editSwipedItem(safeEvent, element.dataset.itemId);
+      break;
+    case "delete-swiped-item":
+      deleteSwipedItem(safeEvent, element.dataset.itemId);
+      break;
+    case "toggle-spare":
+      toggleSpare(Number(element.dataset.index));
+      break;
+    case "select-category":
+      safeEvent.stopPropagation();
+      setModalCategory(element.dataset.category || "other");
+      break;
+    case "select-owner":
+      safeEvent.stopPropagation();
+      setModalIcon(element.dataset.owner || "共");
+      break;
+    default:
+      break;
+  }
+}
+
+function setupSafeActionHandlers() {
+  document.addEventListener("touchstart", event => {
+    const element = getActionElementFromEvent(event);
+    if (!element || isActionElementDisabled(element)) {
+      safeActionTouch = null;
+      return;
+    }
+    if (!event.touches || event.touches.length !== 1) {
+      safeActionTouch = null;
+      return;
+    }
+
+    const touch = event.touches[0];
+    safeActionTouch = {
+      element: element,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      moved: false
+    };
+  }, { passive: true, capture: true });
+
+  document.addEventListener("touchmove", event => {
+    if (!safeActionTouch || !event.touches || event.touches.length !== 1) return;
+
+    const touch = event.touches[0];
+    const dx = Math.abs(touch.clientX - safeActionTouch.startX);
+    const dy = Math.abs(touch.clientY - safeActionTouch.startY);
+
+    if (dx > BUTTON_TAP_MOVE_CANCEL_DISTANCE || dy > BUTTON_TAP_MOVE_CANCEL_DISTANCE) {
+      safeActionTouch.moved = true;
+    }
+  }, { passive: true, capture: true });
+
+  document.addEventListener("touchend", event => {
+    if (!safeActionTouch) return;
+
+    const state = safeActionTouch;
+    safeActionTouch = null;
+    suppressNativeClickUntil = Date.now() + 800;
+
+    if (!event.changedTouches || event.changedTouches.length !== 1) return;
+
+    const touch = event.changedTouches[0];
+    const dx = Math.abs(touch.clientX - state.startX);
+    const dy = Math.abs(touch.clientY - state.startY);
+
+    if (dx > BUTTON_TAP_MOVE_CANCEL_DISTANCE || dy > BUTTON_TAP_MOVE_CANCEL_DISTANCE) return;
+    if (state.moved) return;
+    if (!isTouchInsideElement(touch, state.element)) return;
+    if (isActionElementDisabled(state.element)) return;
+
+    executeSafeAction(state.element, event);
+  }, { passive: false });
+
+  document.addEventListener("touchcancel", () => {
+    safeActionTouch = null;
+    suppressNativeClickUntil = Date.now() + 800;
+  }, { passive: true, capture: true });
+
+  document.addEventListener("click", event => {
+    const element = getActionElementFromEvent(event);
+    if (!element) return;
+
+    if (Date.now() < suppressNativeClickUntil) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    if (isActionElementDisabled(element)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    executeSafeAction(element, event);
+  }, true);
+}
+
+// ========================================
+// 起動画面・トースト
+// ========================================
 function setupStartupScreen() {
   const visual = document.getElementById("startupVisual");
   const title = document.getElementById("startupTitle");
   const version = document.getElementById("startupVersion");
   const message = document.getElementById("startupMessage");
+  const startButton = document.getElementById("startupStartButton");
 
   if (visual) visual.textContent = "🧺";
   if (title) title.textContent = "日用品リスト";
   if (version) version.textContent = "ver" + APP_VERSION;
   if (message) message.textContent = "";
+  if (startButton) startButton.classList.remove("show");
 }
 
 function startStartupToastTimer() {
@@ -200,7 +456,8 @@ function hasModeChanges() {
 }
 
 function setOwnerTab(tabKey) {
-  if (isModeSaving || isReordering) return;
+  if (isModeSaving || isReordering || isRefreshing) return;
+  if (closeSwipedItemIfOpen()) return;
   activeOwnerTab = tabKey;
   closeSwipedItemWithoutRender();
   render();
@@ -244,8 +501,9 @@ function renderOwnerTabs() {
     button.className = `owner-tab ${stockClass} ${isActive ? "active" : ""}`;
     button.textContent = isActive ? tab.full : tab.short;
     button.setAttribute("aria-label", tab.full);
-    button.disabled = isModeSaving || isReordering;
-    button.onclick = () => setOwnerTab(tab.key);
+    button.disabled = isModeSaving || isReordering || isRefreshing;
+    button.dataset.action = "set-owner-tab";
+    button.dataset.owner = tab.key;
 
     tabContainer.appendChild(button);
   });
@@ -371,7 +629,8 @@ function getNextCategoryOrder(category) {
 }
 
 function toggleCategoryCollapse(category) {
-  if (isModeSaving || isReordering) return;
+  if (isModeSaving || isReordering || isRefreshing) return;
+  if (closeSwipedItemIfOpen()) return;
 
   const key = category || "other";
 
@@ -393,22 +652,29 @@ function updateActionButtons() {
   const purchaseCompleteButton = document.getElementById("purchaseCompleteButton");
   const cancelButton = document.getElementById("shoppingCancelTopButton");
   const addButton = document.querySelector(".add-top-button");
+  const copyButton = document.getElementById("shoppingCopyButton");
   const hasChanges = hasModeChanges();
 
   if (cancelButton) {
-    cancelButton.disabled = isModeSaving || isReordering;
+    cancelButton.disabled = isModeSaving || isReordering || isRefreshing;
   }
 
   if (addButton) {
-    addButton.disabled = isModeSaving || isReordering;
+    addButton.disabled = isModeSaving || isReordering || isRefreshing;
+  }
+
+  if (copyButton) {
+    copyButton.disabled = isModeSaving || isReordering || isRefreshing || getShoppingCopyItems().length === 0;
   }
 
   if (purchaseCompleteButton) {
     const isSavingThisButton = isModeSaving && shoppingMode;
-    purchaseCompleteButton.disabled = isModeSaving || !hasChanges;
+    purchaseCompleteButton.disabled = isModeSaving || isRefreshing || !hasChanges;
     purchaseCompleteButton.classList.toggle("saving", isSavingThisButton);
     purchaseCompleteButton.innerHTML = isSavingThisButton ? getSavingButtonHtml() : "購入確定";
   }
+
+  updateSaveStatusIndicator();
 }
 
 function setModeSaving(saving) {
@@ -437,6 +703,9 @@ function getOwnerMarkClass(icon) {
   return "owner-common";
 }
 
+// ========================================
+// データ読み込み・保存
+// ========================================
 function resetModesAndSelections() {
   shoppingModeItemIds.clear();
   shoppingMode = false;
@@ -447,7 +716,24 @@ function resetModesAndSelections() {
 }
 
 function isBlockingModalOpen() {
-  return isLoadFailureModalOpen;
+  return isLoadFailureModalOpen || isConflictReloading || isRefreshing;
+}
+
+function applyLoadedItemsResponse(response) {
+  const loadedItems = Array.isArray(response) ? response : (response.items || []);
+
+  if (!Array.isArray(response) && response.version !== undefined) {
+    serverVersion = Number(response.version) || 0;
+  }
+
+  items = normalizeItems(loadedItems);
+
+  if (!shoppingMode) {
+    shoppingModeItemIds.clear();
+  }
+
+  render();
+  hideStartupScreen();
 }
 
 function loadItems(options = {}) {
@@ -462,6 +748,7 @@ function loadItems(options = {}) {
   if (fromPull) {
     isRefreshing = true;
     pullDistance = REFRESH_OFFSET;
+    updateActionButtons();
     updateRefreshIndicator();
     updatePullRefreshVisual();
   }
@@ -469,20 +756,7 @@ function loadItems(options = {}) {
   const callbackName = "loadItemsCallback_" + Date.now();
 
   window[callbackName] = function(response) {
-    const loadedItems = Array.isArray(response) ? response : (response.items || []);
-
-    if (!Array.isArray(response) && response.version !== undefined) {
-      serverVersion = Number(response.version) || 0;
-    }
-
-    items = normalizeItems(loadedItems);
-
-    if (!shoppingMode) {
-      shoppingModeItemIds.clear();
-    }
-
-    render();
-    hideStartupScreen();
+    applyLoadedItemsResponse(response);
 
     if (afterLoadMessage) {
       showToast(afterLoadMessage);
@@ -515,10 +789,44 @@ function loadItems(options = {}) {
   document.body.appendChild(script);
 }
 
+async function loadLatestItemsForConflictCancel() {
+  const response = await requestJsonp({});
+  applyLoadedItemsResponse(response);
+}
+
 function requestJsonp(params) {
   return new Promise((resolve, reject) => {
     const callbackName = "jsonpCallback_" + Date.now() + "_" + Math.random().toString(36).slice(2);
     const script = document.createElement("script");
+    let settled = false;
+    let timeoutId = null;
+
+    function cleanup() {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      delete window[callbackName];
+      if (script.parentNode) {
+        script.remove();
+      }
+    }
+
+    function settleSuccess(response) {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(response);
+    }
+
+    function settleError(message, code) {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      const error = new Error(message || "通信に失敗しました");
+      error.code = code || "N01";
+      reject(error);
+    }
 
     const query = new URLSearchParams();
     query.set("callback", callbackName);
@@ -528,35 +836,98 @@ function requestJsonp(params) {
     });
 
     window[callbackName] = function(response) {
-      delete window[callbackName];
-      script.remove();
-      resolve(response);
+      settleSuccess(response);
     };
 
     script.onerror = function() {
-      delete window[callbackName];
-      script.remove();
-      reject(new Error("通信に失敗しました"));
+      settleError("通信に失敗しました", "N01");
     };
+
+    timeoutId = setTimeout(() => {
+      settleError("保存がタイムアウトしました", "N02");
+    }, SAVE_TIMEOUT_MS);
 
     script.src = WEB_APP_URL + "?" + query.toString();
     document.body.appendChild(script);
   });
 }
 
+function buildSavePayload(force) {
+  return {
+    action: "saveAll",
+    baseVersion: serverVersion || 0,
+    force: force === true,
+    items: items
+  };
+}
+
+function getSavePayloadText(force) {
+  return JSON.stringify(buildSavePayload(force));
+}
+
+function isLargeSavePayload() {
+  return lastSavePayloadLength >= SAVE_PAYLOAD_WARNING_LENGTH;
+}
+
+function createSavePayload(action, data = {}, force = false) {
+  return {
+    ...data,
+    action: action || "saveAll",
+    baseVersion: serverVersion || 0,
+    force: force === true
+  };
+}
+
+function getErrorCodeFromResult(result, fallbackCode) {
+  if (result && result.code) return String(result.code);
+  return fallbackCode || "N01";
+}
+
+function createSaveError(result, fallbackMessage, fallbackCode) {
+  const error = new Error(result && result.message ? result.message : fallbackMessage || "保存に失敗しました");
+  error.code = getErrorCodeFromResult(result, fallbackCode || "S01");
+  error.result = result || null;
+  return error;
+}
+
+function getOrderPayloadForCategory(category) {
+  const key = category || "other";
+  return items
+    .filter(item => (item.category || "other") === key)
+    .sort((a, b) => {
+      const orderDiff = getOrderValue(a) - getOrderValue(b);
+      if (orderDiff !== 0) return orderDiff;
+      return items.findIndex(base => base.id === a.id) - items.findIndex(base => base.id === b.id);
+    })
+    .map((item, index) => ({
+      i: item.id,
+      o: index + 1
+    }));
+}
+
+function buildSaveMutation(action, data = {}) {
+  return {
+    action: action,
+    ...data
+  };
+}
+
 async function saveItemsToServer(options = {}) {
   const force = options.force === true;
+  const mutation = options.mutation || null;
+  const action = mutation && mutation.action ? mutation.action : "saveAll";
+  const payload = mutation
+    ? createSavePayload(action, mutation, force)
+    : buildSavePayload(force);
+
+  const payloadText = JSON.stringify(payload);
+  lastSavePayloadLength = payloadText.length;
 
   return requestJsonp({
-    action: "saveAll",
+    action: action,
     baseVersion: String(serverVersion || 0),
     force: force ? "true" : "false",
-    payload: JSON.stringify({
-      action: "saveAll",
-      baseVersion: serverVersion || 0,
-      force: force,
-      items: items
-    })
+    payload: payloadText
   });
 }
 
@@ -570,45 +941,297 @@ function isOkResult(result) {
 
 function applySaveSuccess(result) {
   if (result && result.version !== undefined) {
-    serverVersion = Number(result.version) || serverVersion;
+    const nextVersion = Number(result.version);
+    if (Number.isFinite(nextVersion) && nextVersion > 0) {
+      serverVersion = nextVersion;
+    }
   }
 }
 
-async function saveImmediateChange(force = false) {
+function hasPendingSaveWork() {
+  return isImmediateSaveRunning ||
+    immediateSaveQueued ||
+    immediateSaveQueue.length > 0 ||
+    !!spareSaveTimer ||
+    pendingSpareChanges.size > 0 ||
+    isSpareBatchSaveRunning ||
+    spareFlushDeferredUntilImmediateSave;
+}
+
+function updateSaveStatusIndicator() {
+  const saveStatus = document.getElementById("saveStatus");
+  if (!saveStatus) return;
+
+  const visible = !shoppingMode && hasPendingSaveWork();
+  saveStatus.textContent = visible ? "保存中…" : "";
+  saveStatus.classList.toggle("visible", visible);
+}
+
+function hasImmediateSaveWork() {
+  return isImmediateSaveRunning || immediateSaveQueued || immediateSaveQueue.length > 0;
+}
+
+function deferSpareFlushUntilImmediateSaveDone() {
+  if (spareSaveTimer) {
+    clearTimeout(spareSaveTimer);
+    spareSaveTimer = null;
+  }
+  spareFlushDeferredUntilImmediateSave = true;
+  updateSaveStatusIndicator();
+}
+
+function scheduleDeferredSpareFlushNow() {
+  if (spareSaveTimer || pendingSpareChanges.size === 0) return;
+
+  spareFlushDeferredUntilImmediateSave = false;
+  spareSaveTimer = setTimeout(() => {
+    spareSaveTimer = null;
+    flushSpareChanges();
+  }, 0);
+  updateSaveStatusIndicator();
+}
+
+function buildSpareChangesPayload(changesMap) {
+  return Array.from(changesMap.entries()).map(([id, hasSpare]) => ({
+    i: id,
+    s: hasSpare === true
+  }));
+}
+
+function scheduleSpareSave(id, hasSpare) {
+  pendingSpareChanges.set(String(id), hasSpare === true);
+
+  if (spareSaveTimer) {
+    clearTimeout(spareSaveTimer);
+  }
+
+  spareSaveTimer = setTimeout(() => {
+    spareSaveTimer = null;
+    flushSpareChanges();
+  }, SPARE_SAVE_DEBOUNCE_MS);
+
+  updateSaveStatusIndicator();
+}
+
+async function saveSpareChanges(changes, force = false) {
+  const mutation = buildSaveMutation("updateSpares", {
+    changes: changes
+  });
+
+  return saveItemsToServer({ mutation: mutation, force: force });
+}
+
+function createDeferredPromise() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolveFn, rejectFn) => {
+    resolve = resolveFn;
+    reject = rejectFn;
+  });
+  return { promise, resolve, reject };
+}
+
+async function flushSpareChanges(force = false) {
+  if (isSpareBatchSaveRunning) {
+    if (spareBatchSavePromise) {
+      await spareBatchSavePromise;
+    }
+    return pendingSpareChanges.size === 0;
+  }
+
+  // 追加・編集・削除・並び替えなどの保存が先に走っている場合は、
+  // 在庫トグルの一括保存を送信せず、先行保存の完了後にまとめて送る。
+  // 送信直前の最新 serverVersion を使うため。
+  if (!force && hasImmediateSaveWork()) {
+    deferSpareFlushUntilImmediateSaveDone();
+    return true;
+  }
+
+  spareFlushDeferredUntilImmediateSave = false;
+
+  if (spareSaveTimer) {
+    clearTimeout(spareSaveTimer);
+    spareSaveTimer = null;
+  }
+
+  if (pendingSpareChanges.size === 0) {
+    updateSaveStatusIndicator();
+    return true;
+  }
+
+  const changes = buildSpareChangesPayload(pendingSpareChanges);
+  pendingSpareChanges.clear();
+  isSpareBatchSaveRunning = true;
+  const spareBatchDeferred = createDeferredPromise();
+  spareBatchSavePromise = spareBatchDeferred.promise;
+  let completedNormally = false;
+  updateSaveStatusIndicator();
+
+  try {
+    const result = await saveSpareChanges(changes, force);
+
+    if (isOkResult(result)) {
+      applySaveSuccess(result);
+      completedNormally = true;
+      return true;
+    }
+
+    if (isConflictResult(result)) {
+      pendingConflictAction = () => saveSpareChangesFromPendingAction(changes, true);
+      pendingConflictAction._actionName = "updateSpares";
+      openConflictModal();
+      return false;
+    }
+
+    throw createSaveError(result, "保存に失敗しました", "S01");
+  } catch (error) {
+    console.error(error);
+    pendingUpdateAction = () => saveSpareChangesFromPendingAction(changes, force);
+    pendingUpdateAction._actionName = "updateSpares";
+    openUpdateRetryModal(error && error.code ? error.code : "N01");
+    return false;
+  } finally {
+    isSpareBatchSaveRunning = false;
+    spareBatchSavePromise = null;
+    spareBatchDeferred.resolve(completedNormally);
+
+    if (completedNormally && pendingSpareChanges.size > 0 && !spareSaveTimer) {
+      spareSaveTimer = setTimeout(() => {
+        spareSaveTimer = null;
+        flushSpareChanges();
+      }, SPARE_SAVE_DEBOUNCE_MS);
+    }
+
+    updateSaveStatusIndicator();
+  }
+}
+
+async function saveSpareChangesFromPendingAction(changes, force = false) {
+  isSpareBatchSaveRunning = true;
+  updateSaveStatusIndicator();
+
+  try {
+    const result = await saveSpareChanges(changes, force);
+
+    if (isOkResult(result)) {
+      applySaveSuccess(result);
+      return;
+    }
+
+    if (isConflictResult(result)) {
+      pendingConflictAction = () => saveSpareChangesFromPendingAction(changes, true);
+      pendingConflictAction._actionName = "updateSpares";
+      openConflictModal();
+      return;
+    }
+
+    throw createSaveError(result, "保存に失敗しました", "S01");
+  } catch (error) {
+    console.error(error);
+    pendingUpdateAction = () => saveSpareChangesFromPendingAction(changes, force);
+    pendingUpdateAction._actionName = "updateSpares";
+    openUpdateRetryModal(error && error.code ? error.code : "N01");
+  } finally {
+    isSpareBatchSaveRunning = false;
+    updateSaveStatusIndicator();
+  }
+}
+
+function getMutationActionName(mutation) {
+  return mutation && mutation.action ? String(mutation.action) : "saveAll";
+}
+
+function createPendingUpdateAction(mutation, force) {
+  const action = () => saveImmediateChange(mutation, force);
+  action._actionName = getMutationActionName(mutation);
+  return action;
+}
+
+function normalizeSaveImmediateArgs(mutationOrForce, maybeForce) {
+  if (typeof mutationOrForce === "boolean") {
+    return {
+      mutation: null,
+      force: mutationOrForce === true
+    };
+  }
+
+  return {
+    mutation: mutationOrForce || null,
+    force: maybeForce === true
+  };
+}
+
+async function saveImmediateChange(mutationOrForce = null, maybeForce = false) {
+  const args = normalizeSaveImmediateArgs(mutationOrForce, maybeForce);
+  const firstRequest = {
+    mutation: args.mutation,
+    force: args.force
+  };
+
+  if (isSpareBatchSaveRunning && spareBatchSavePromise) {
+    await spareBatchSavePromise;
+  }
+
+  if (pendingSpareChanges.size > 0 || spareSaveTimer) {
+    const spareFlushSucceeded = await flushSpareChanges();
+    if (spareFlushSucceeded === false) {
+      return;
+    }
+  }
+
   if (isImmediateSaveRunning) {
+    immediateSaveQueue.push(firstRequest);
     immediateSaveQueued = true;
+    updateSaveStatusIndicator();
     return;
   }
 
   isImmediateSaveRunning = true;
+  updateSaveStatusIndicator();
 
   try {
-    while (true) {
-      immediateSaveQueued = false;
+    let currentRequest = firstRequest;
 
-      const result = await saveItemsToServer({ force: force });
-      force = false;
+    while (currentRequest) {
+      immediateSaveQueued = immediateSaveQueue.length > 0;
+
+      const mutation = currentRequest.mutation;
+      const force = currentRequest.force === true;
+      const result = await saveItemsToServer({ mutation: mutation, force: force });
 
       if (isOkResult(result)) {
         applySaveSuccess(result);
       } else if (isConflictResult(result)) {
-        pendingConflictAction = () => saveImmediateChange(true);
+        immediateSaveQueue = [];
+        immediateSaveQueued = false;
+        pendingConflictAction = () => saveImmediateChange(mutation, true);
+        pendingConflictAction._actionName = getMutationActionName(mutation);
         openConflictModal();
         return;
       } else {
-        throw new Error(result && result.message ? result.message : "保存に失敗しました");
+        throw createSaveError(result, "保存に失敗しました", "S01");
       }
 
-      if (!immediateSaveQueued) {
-        break;
-      }
+      currentRequest = immediateSaveQueue.shift() || null;
     }
   } catch (error) {
     console.error(error);
-    pendingUpdateAction = () => saveImmediateChange(force);
-    openUpdateRetryModal();
+    immediateSaveQueue = [];
+    immediateSaveQueued = false;
+    pendingUpdateAction = createPendingUpdateAction(
+      (typeof currentRequest !== "undefined" && currentRequest && currentRequest.mutation) ? currentRequest.mutation : firstRequest.mutation,
+      (typeof currentRequest !== "undefined" && currentRequest && currentRequest.force === true) || firstRequest.force === true
+    );
+    openUpdateRetryModal(error && error.code ? error.code : "N01");
   } finally {
     isImmediateSaveRunning = false;
+    immediateSaveQueued = immediateSaveQueue.length > 0;
+
+    if (!isImmediateSaveRunning && immediateSaveQueue.length === 0 && pendingSpareChanges.size > 0) {
+      scheduleDeferredSpareFlushNow();
+    }
+
+    updateSaveStatusIndicator();
   }
 }
 
@@ -616,10 +1239,18 @@ async function commitModeAndExit(successMessage, force = false) {
   if (!hasModeChanges()) return;
   if (isModeSaving) return;
 
+  const purchaseIds = Array.from(shoppingModeItemIds).filter(id => {
+    const item = items.find(item => item.id === id);
+    return item && item.hasSpare === true;
+  });
+
   setModeSaving(true);
 
   try {
-    const result = await saveItemsToServer({ force: force });
+    const mutation = buildSaveMutation("completePurchase", {
+      ids: purchaseIds
+    });
+    const result = await saveItemsToServer({ mutation: mutation, force: force });
 
     if (isOkResult(result)) {
       applySaveSuccess(result);
@@ -642,12 +1273,12 @@ async function commitModeAndExit(successMessage, force = false) {
       return;
     }
 
-    throw new Error(result && result.message ? result.message : "保存に失敗しました");
+    throw createSaveError(result, "保存に失敗しました", "S01");
   } catch (error) {
     console.error(error);
     setModeSaving(false);
     pendingUpdateAction = () => commitModeAndExit(successMessage, force);
-    openUpdateRetryModal();
+    openUpdateRetryModal(error && error.code ? error.code : "N01");
   }
 }
 
@@ -660,6 +1291,37 @@ function exitModeWithoutSaving() {
   render();
 }
 
+function setupSwipeCloseGuards() {
+  const container = document.getElementById("items");
+  if (!container) return;
+
+  container.addEventListener("touchstart", event => {
+    if (!swipedItemId) return;
+    if (event.target.closest(".swipe-action-button")) return;
+
+    const openRow = event.target.closest(".row.swipe-open");
+    if (openRow) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    closeSwipedItem();
+  }, { passive: false, capture: true });
+
+  container.addEventListener("touchmove", event => {
+    if (!swipedItemId) return;
+    if (event.target.closest(".swipe-action-button")) return;
+
+    const openRow = event.target.closest(".row.swipe-open");
+    if (openRow) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+  }, { passive: false, capture: true });
+}
+
+// ========================================
+// 描画
+// ========================================
 function render() {
   updateAppModeClasses();
   renderOwnerTabs();
@@ -747,14 +1409,41 @@ function scrollToPendingFocusItem() {
   const targetId = pendingFocusItemId;
   pendingFocusItemId = null;
 
-  const rows = Array.from(document.querySelectorAll(".row[data-item-id]"));
+  const container = document.getElementById("items");
+  if (!container) return;
+
+  const rows = Array.from(container.querySelectorAll(".row[data-item-id]"));
   const target = rows.find(row => row.dataset.itemId === targetId);
 
   if (!target) return;
 
-  target.scrollIntoView({
-    behavior: "smooth",
-    block: "center"
+  resetPullRefreshVisual();
+
+  requestAnimationFrame(() => {
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const currentTop = container.scrollTop;
+    const targetTop =
+      currentTop +
+      (targetRect.top - containerRect.top) -
+      (container.clientHeight / 2) +
+      (target.offsetHeight / 2);
+
+    const maxTop = Math.max(container.scrollHeight - container.clientHeight, 0);
+    const nextTop = Math.min(Math.max(targetTop, 0), maxTop);
+
+    container.scrollTo({
+      top: nextTop,
+      behavior: "smooth"
+    });
+
+    setTimeout(() => {
+      resetPullRefreshVisual();
+      if (document.scrollingElement) {
+        document.scrollingElement.scrollTop = 0;
+      }
+      window.scrollTo(0, 0);
+    }, 520);
   });
 }
 
@@ -764,20 +1453,32 @@ function updateAppModeClasses() {
   const shoppingButton = document.querySelector(".shopping-button");
   const cancelButton = document.getElementById("shoppingCancelTopButton");
   const addButton = document.querySelector(".add-top-button");
+  const copyButton = document.getElementById("shoppingCopyButton");
+  const themeColorMeta = document.getElementById("themeColorMeta");
 
   app.classList.toggle("shopping-mode", shoppingMode);
   app.classList.toggle("reordering", isReordering);
+  app.classList.toggle("has-swipe-open", !!swipedItemId);
+  document.body.classList.toggle("shopping-mode", shoppingMode);
+
+  if (themeColorMeta) {
+    themeColorMeta.setAttribute("content", shoppingMode ? "#fff7e8" : "#f5f5f5");
+  }
 
   if (shoppingButton) {
     shoppingButton.disabled = isModeSaving || isReordering;
   }
 
   if (cancelButton) {
-    cancelButton.disabled = isModeSaving || isReordering;
+    cancelButton.disabled = isModeSaving || isReordering || isRefreshing;
   }
 
   if (addButton) {
-    addButton.disabled = isModeSaving || isReordering;
+    addButton.disabled = isModeSaving || isReordering || isRefreshing;
+  }
+
+  if (copyButton) {
+    copyButton.disabled = isModeSaving || isReordering || isRefreshing || getShoppingCopyItems().length === 0;
   }
 
   if (appTitle) {
@@ -929,6 +1630,7 @@ function finishPullRefresh() {
     setTimeout(() => {
       isRefreshing = false;
       resetPullRefreshVisual();
+      updateActionButtons();
     }, 350);
   });
 }
@@ -988,7 +1690,8 @@ function createCategoryHeading(category) {
     <button
       class="category-heading-button"
       type="button"
-      onclick="toggleCategoryCollapse('${category || "other"}')"
+      data-action="toggle-category-collapse"
+      data-category="${category || "other"}"
       aria-label="${getCategoryName(category || "other")}の表示切り替え"
     >
       <span>${getCategoryName(category || "other")}</span>
@@ -1044,16 +1747,13 @@ function createItemRow(item) {
       ontouchmove="moveItemTouch(event)"
       ontouchend="endItemTouch(event, '${item.id}')"
       ontouchcancel="cancelItemTouch()"
-      onclick="handleItemTap(event, '${item.id}')"
     >
       <div class="swipe-actions">
-        <button class="swipe-action-button delete" onclick="deleteSwipedItem(event, '${item.id}')" aria-label="日用品を削除">
+        <button class="swipe-action-button delete" data-action="delete-swiped-item" data-item-id="${item.id}" aria-label="日用品を削除">
           ${createTrashIcon("swipe-action-icon")}
-          <span>削除</span>
         </button>
-        <button class="swipe-action-button edit" onclick="editSwipedItem(event, '${item.id}')" aria-label="日用品を編集">
+        <button class="swipe-action-button edit" data-action="edit-swiped-item" data-item-id="${item.id}" aria-label="日用品を編集">
           ${createPencilIcon("swipe-action-icon")}
-          <span>編集</span>
         </button>
       </div>
 
@@ -1106,7 +1806,8 @@ function createShoppingCheckHtml(item, index) {
       class="shopping-check-button ${checked ? "checked" : "unchecked"}"
       type="button"
       ${isModeSaving || isReordering ? "disabled" : ""}
-      onclick="event.stopPropagation(); toggleSpare(${index})"
+      data-action="toggle-spare"
+      data-index="${index}"
       aria-label="${checked ? "購入済み" : "未購入"}"
     >
       <span class="shopping-checkbox" aria-hidden="true">
@@ -1128,7 +1829,8 @@ function createStockToggleHtml(item, index) {
       class="spare-badge ${className}"
       type="button"
       ${isModeSaving || isReordering ? "disabled" : ""}
-      onclick="event.stopPropagation(); toggleSpare(${index})"
+      data-action="toggle-spare"
+      data-index="${index}"
       aria-label="${label}"
     >
       <span class="stock-toggle-track">
@@ -1155,11 +1857,19 @@ function createItemContentHtml(item, index) {
 }
 
 function startItemTouch(event, id) {
-  if (shoppingMode || isModeSaving || isReordering) return;
+  if (shoppingMode || isModeSaving || isReordering || isBlockingModalOpen()) return;
   if (!event.touches || event.touches.length !== 1) return;
-  if (event.target.closest(".spare-badge")) return;
-  if (event.target.closest(".shopping-check-button")) return;
+
+  if (swipedItemId && swipedItemId !== id) {
+    event.preventDefault();
+    event.stopPropagation();
+    closeSwipedItem();
+    return;
+  }
+
   if (event.target.closest(".swipe-action-button")) return;
+
+  const isOpenItem = swipedItemId === id;
 
   swipeFrameElement = event.currentTarget;
   swipeItemElement = swipeFrameElement.querySelector(".item");
@@ -1177,9 +1887,11 @@ function startItemTouch(event, id) {
   swipeDirection = null;
 
   clearTimeout(reorderHoldTimer);
-  reorderHoldTimer = setTimeout(() => {
-    beginReorder(id, swipeCurrentY);
-  }, REORDER_HOLD_MS);
+  if (!isOpenItem) {
+    reorderHoldTimer = setTimeout(() => {
+      beginReorder(id, swipeCurrentY);
+    }, REORDER_HOLD_MS);
+  }
 }
 
 function moveItemTouch(event) {
@@ -1245,6 +1957,20 @@ function endItemTouch(event, id) {
 
   const deltaX = swipeCurrentX - swipeStartX;
 
+  if (swipedItemId === id && !swipeCanceled && !swipeMoved) {
+    swipedItemId = null;
+    cancelItemTouch();
+    render();
+    return;
+  }
+
+  // ただのタップでは親カード側で再描画しない。
+  // 在庫トグルの click が touchend 後に自然に発火できるようにする。
+  if (!swipeMoved && !swipeCanceled && !swipeDirection) {
+    cancelItemTouch();
+    return;
+  }
+
   if (!shoppingMode && !isModeSaving && !swipeCanceled && swipeDirection === "horizontal") {
     if (swipeBaseOffset === 0) {
       if (deltaX <= -SWIPE_OPEN_THRESHOLD) {
@@ -1261,10 +1987,20 @@ function endItemTouch(event, id) {
     }
   }
 
+  if (swipeMoved) {
+    suppressNextTap = true;
+    setTimeout(() => {
+      suppressNextTap = false;
+    }, 300);
+  }
+
   cancelItemTouch();
   render();
 }
 
+// ========================================
+// スワイプ操作
+// ========================================
 function cancelItemTouch() {
   clearTimeout(reorderHoldTimer);
   resetSwipeVisual();
@@ -1616,13 +2352,18 @@ function applyFinalVisibleOrderToSnapshot(category, startVisibleIds, finalVisibl
 function finishReorder() {
   if (!isReordering) return;
 
+  const categoryForSave = reorderCategory || "other";
   const shouldSave = finalizeReorderFromSnapshot();
+  const ordersForSave = shouldSave ? getOrderPayloadForCategory(categoryForSave) : [];
 
   cleanupReorder();
   render();
 
   if (shouldSave) {
-    saveImmediateChange();
+    saveImmediateChange(buildSaveMutation("updateOrder", {
+      category: categoryForSave,
+      orders: ordersForSave
+    }));
   }
 
   setTimeout(() => {
@@ -1630,6 +2371,9 @@ function finishReorder() {
   }, 300);
 }
 
+// ========================================
+// 並び替え
+// ========================================
 function cancelReorder() {
   if (!isReordering) return;
 
@@ -1671,6 +2415,11 @@ function clamp(value, min, max) {
 }
 
 function handleItemTap(event, id) {
+  if (isBlockingModalOpen()) {
+    event.stopPropagation();
+    return;
+  }
+
   if (suppressNextTap) {
     event.stopPropagation();
     return;
@@ -1685,6 +2434,7 @@ function handleItemTap(event, id) {
     event.stopPropagation();
     closeSwipedItem();
   } else if (swipedItemId && swipedItemId !== id) {
+    event.stopPropagation();
     closeSwipedItem();
   }
 }
@@ -1693,6 +2443,12 @@ function closeSwipedItem() {
   if (!swipedItemId) return;
   swipedItemId = null;
   render();
+}
+
+function closeSwipedItemIfOpen() {
+  if (!swipedItemId) return false;
+  closeSwipedItem();
+  return true;
 }
 
 function closeSwipedItemWithoutRender() {
@@ -1718,7 +2474,13 @@ function deleteSwipedItem(event, id) {
 }
 
 function toggleSpare(index) {
-  if (isModeSaving || isReordering) return;
+  if (isModeSaving || isReordering || suppressNextTap || isBlockingModalOpen()) return;
+
+  if (swipedItemId) {
+    closeSwipedItem();
+    return;
+  }
+
   if (index < 0 || !items[index]) return;
 
   closeSwipedItemWithoutRender();
@@ -1727,13 +2489,131 @@ function toggleSpare(index) {
   if (shoppingMode) {
     render();
   } else {
-    saveImmediateChange();
+    scheduleSpareSave(items[index].id, items[index].hasSpare);
     render();
+  }
+}
+
+
+function getShoppingCopyItems() {
+  return sortItemsByCategory(items.filter(item => !item.hasSpare));
+}
+
+function formatShoppingCopyDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${year}/${month}/${day} ${hour}:${minute}`;
+}
+
+function getOwnerSuffix(icon) {
+  const ownerName = getOwnerName(icon);
+  return ownerName === "共同" ? "" : `（${ownerName}）`;
+}
+
+function buildShoppingListText() {
+  const targetItems = getShoppingCopyItems();
+  const lines = ["買い物リスト", formatShoppingCopyDate(new Date()), ""];
+  let previousCategory = null;
+
+  targetItems.forEach(item => {
+    const category = item.category || "other";
+
+    if (category !== previousCategory) {
+      if (previousCategory !== null) {
+        lines.push("");
+      }
+
+      lines.push(`【${getCategoryName(category)}】`);
+      previousCategory = category;
+    }
+
+    lines.push(`・${item.name}${getOwnerSuffix(item.icon)}`);
+
+    if (item.note) {
+      lines.push(`  メモ：${item.note}`);
+    }
+  });
+
+  return lines.join("\n").trimEnd();
+}
+
+function copyTextFallback(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  let success = false;
+
+  try {
+    success = document.execCommand("copy");
+  } catch (error) {
+    success = false;
+  }
+
+  document.body.removeChild(textarea);
+  return success;
+}
+
+function showCopyButtonDone() {
+  const button = document.getElementById("shoppingCopyButton");
+  if (!button) return;
+
+  button.classList.add("copied");
+  clearTimeout(copyButtonFeedbackTimer);
+
+  copyButtonFeedbackTimer = setTimeout(() => {
+    button.classList.remove("copied");
+  }, COPY_FEEDBACK_MS);
+}
+
+async function copyShoppingList(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  if (isModeSaving || isReordering) return;
+
+  const targetItems = getShoppingCopyItems();
+
+  if (targetItems.length === 0) {
+    showToast("コピーする買い物リストがありません");
+    return;
+  }
+
+  const text = buildShoppingListText();
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else if (!copyTextFallback(text)) {
+      throw new Error("copy failed");
+    }
+
+    showCopyButtonDone();
+    showToast("買い物リストをコピーしました", COPY_FEEDBACK_MS);
+  } catch (error) {
+    if (copyTextFallback(text)) {
+      showCopyButtonDone();
+      showToast("買い物リストをコピーしました", COPY_FEEDBACK_MS);
+    } else {
+      showToast("コピーできませんでした");
+    }
   }
 }
 
 function toggleShoppingMode() {
   if (isModeSaving || isReordering) return;
+  if (closeSwipedItemIfOpen()) return;
 
   closeSwipedItemWithoutRender();
 
@@ -1767,6 +2647,7 @@ function openItemModalWithPageTransition() {
 
 function openAddModal() {
   if (shoppingMode || isModeSaving || isReordering) return;
+  if (closeSwipedItemIfOpen()) return;
 
   closeSwipedItemWithoutRender();
 
@@ -1897,10 +2778,8 @@ function renderCategoryPicker() {
       <span>${category.name}</span>
       ${modalCategory === category.key ? createCheckSvg() : ""}
     `;
-    button.onclick = event => {
-      event.stopPropagation();
-      setModalCategory(category.key);
-    };
+    button.dataset.action = "select-category";
+    button.dataset.category = category.key;
 
     menu.appendChild(button);
   });
@@ -1926,10 +2805,8 @@ function renderOwnerPicker() {
       <span>${owner.name}</span>
       ${modalIcon === owner.key ? createCheckSvg() : ""}
     `;
-    button.onclick = event => {
-      event.stopPropagation();
-      setModalIcon(owner.key);
-    };
+    button.dataset.action = "select-owner";
+    button.dataset.owner = owner.key;
 
     menu.appendChild(button);
   });
@@ -1949,17 +2826,28 @@ function confirmItemModal() {
   if (!name) return;
 
   let addedItemId = null;
+  let mutation = null;
 
   if (modalMode === "add") {
     addedItemId = addItemFromModal(name, note);
+    const addedItem = items.find(item => item.id === addedItemId);
+    mutation = buildSaveMutation("addItem", {
+      item: addedItem
+    });
   }
 
   if (modalMode === "edit") {
-    updateItemFromModal(name, note);
+    const updatedItem = updateItemFromModal(name, note);
+    mutation = buildSaveMutation("updateItem", {
+      item: updatedItem
+    });
   }
 
   closeItemModal();
-  saveImmediateChange();
+
+  if (mutation) {
+    saveImmediateChange(mutation);
+  }
 
   if (addedItemId) {
     revealAddedItem(addedItemId);
@@ -1986,13 +2874,17 @@ function addItemFromModal(name, note) {
 }
 
 function updateItemFromModal(name, note) {
+  let updatedItem = null;
+  let oldCategoryForNormalize = null;
+
   items = items.map(item => {
     if (item.id === editingItemId) {
       const oldCategory = item.category || "other";
       const newCategory = modalCategory || "other";
       const categoryChanged = oldCategory !== newCategory;
 
-      return {
+      oldCategoryForNormalize = oldCategory;
+      updatedItem = {
         ...item,
         name: name,
         note: note,
@@ -2000,14 +2892,25 @@ function updateItemFromModal(name, note) {
         category: newCategory,
         categoryOrder: categoryChanged ? getNextCategoryOrder(newCategory) : item.categoryOrder
       };
+
+      return updatedItem;
     }
 
     return item;
   });
 
+  if (oldCategoryForNormalize) {
+    normalizeCategoryOrderFor(oldCategoryForNormalize);
+  }
   normalizeCategoryOrderFor(modalCategory || "other");
+
+  updatedItem = items.find(item => item.id === editingItemId) || updatedItem;
+  return updatedItem;
 }
 
+// ========================================
+// 追加・編集・削除・買い物モード
+// ========================================
 function openDeleteConfirm(id) {
   if (isModeSaving || isReordering) return;
 
@@ -2031,15 +2934,19 @@ function closeDeleteConfirm() {
 function confirmDeleteItem() {
   if (isModeSaving || !deletingItemId) return;
 
-  const deletedItem = items.find(item => item.id === deletingItemId);
+  const deletedId = deletingItemId;
+  const deletedItem = items.find(item => item.id === deletedId);
   const deletedCategory = deletedItem ? deletedItem.category || "other" : "other";
 
-  items = items.filter(item => item.id !== deletingItemId);
+  items = items.filter(item => item.id !== deletedId);
   deletingItemId = null;
   normalizeCategoryOrderFor(deletedCategory);
 
   document.getElementById("deleteConfirmModal").classList.remove("show");
-  saveImmediateChange();
+  saveImmediateChange(buildSaveMutation("deleteItem", {
+    id: deletedId,
+    category: deletedCategory
+  }));
   render();
 }
 
@@ -2059,6 +2966,9 @@ function confirmPurchaseComplete() {
   commitModeAndExit("購入内容を保存しました");
 }
 
+// ========================================
+// モーダル
+// ========================================
 function openHomeCancelConfirm() {
   if (isModeSaving) return;
   if (!shoppingMode) return;
@@ -2093,9 +3003,29 @@ function confirmHomeCancel() {
   exitModeWithoutSaving();
 }
 
-function openUpdateRetryModal() {
+function getUpdateRetryMessage() {
+  let message = "サーバーへの更新に失敗しました。\n画面上の変更はまだ保存されていません。";
+
+  if (isLargeSavePayload()) {
+    message += "\nデータ量が多くなっている可能性があります。";
+  }
+
+  return message;
+}
+
+function openUpdateRetryModal(errorCode) {
   hideToast();
   resetPullRefreshVisual();
+
+  const message = document.getElementById("updateRetryMessage");
+  if (message) {
+    let text = getUpdateRetryMessage();
+    if (errorCode) {
+      text += "\nエラーコード：" + errorCode;
+    }
+    message.textContent = text;
+  }
+
   document.getElementById("updateRetryModal").classList.add("show");
 }
 
@@ -2113,21 +3043,77 @@ function retryPendingUpdate() {
   }
 }
 
+async function cancelPendingUpdate() {
+  closeUpdateRetryModal();
+  pendingUpdateAction = null;
+  resetModesAndSelections();
+  hideToast();
+  resetPullRefreshVisual();
+  setConflictModalLoading(true);
+  document.getElementById("conflictModal").classList.add("show");
+
+  try {
+    await loadLatestItemsForConflictCancel();
+    closeConflictModal();
+    showToast("更新をキャンセルし、最新リストを読み込みました");
+  } catch (error) {
+    console.error(error);
+    closeConflictModal();
+    openLoadFailureModal("リストを読み込めませんでした。\n通信状況を確認してください。");
+  }
+}
+
+function setConflictModalLoading(isLoading) {
+  isConflictReloading = isLoading === true;
+  const title = document.getElementById("conflictTitle");
+  const message = document.getElementById("conflictMessage");
+  const actions = document.getElementById("conflictActions");
+
+  if (title) {
+    title.textContent = isLoading ? "更新キャンセル" : "更新確認";
+  }
+
+  if (message) {
+    if (isLoading) {
+      message.innerHTML = '<span class="inline-spinner" aria-hidden="true"></span><span>最新リストを読み込んでいます。</span>';
+      message.classList.add("loading-message");
+    } else {
+      message.innerHTML = "他の端末でリストが更新されています。<br>更新すると、他の端末の変更が上書きされる可能性があります。";
+      message.classList.remove("loading-message");
+    }
+  }
+
+  if (actions) {
+    actions.style.display = isLoading ? "none" : "flex";
+  }
+}
+
 function openConflictModal() {
   hideToast();
   resetPullRefreshVisual();
+  setConflictModalLoading(false);
   document.getElementById("conflictModal").classList.add("show");
 }
 
 function closeConflictModal() {
   document.getElementById("conflictModal").classList.remove("show");
+  setConflictModalLoading(false);
 }
 
-function loadLatestFromConflict() {
-  closeConflictModal();
+async function loadLatestFromConflict() {
   pendingConflictAction = null;
   resetModesAndSelections();
-  loadItems({ afterLoadMessage: "最新リストを読み込みました" });
+  setConflictModalLoading(true);
+
+  try {
+    await loadLatestItemsForConflictCancel();
+    closeConflictModal();
+    showToast("最新リストを読み込みました");
+  } catch (error) {
+    console.error(error);
+    closeConflictModal();
+    openLoadFailureModal("リストを読み込めませんでした。\n通信状況を確認してください。");
+  }
 }
 
 function forcePendingConflictSave() {
@@ -2156,6 +3142,54 @@ function closeLoadFailureModal() {
   document.getElementById("loadFailureModal").classList.remove("show");
 }
 
+function showTitleScreen(options = {}) {
+  const showStartButton = options.showStartButton === true;
+
+  isInitialLoading = true;
+  clearTimeout(startupToastTimer);
+
+  const screen = document.getElementById("startupScreen");
+  const startupMessage = document.getElementById("startupMessage");
+  const startButton = document.getElementById("startupStartButton");
+
+  setupStartupScreen();
+
+  if (startupMessage) {
+    startupMessage.textContent = "";
+  }
+
+  if (startButton) {
+    startButton.classList.toggle("show", showStartButton);
+  }
+
+  if (screen) {
+    screen.style.display = "flex";
+    screen.classList.remove("hide");
+    screen.classList.remove("show-toast");
+  }
+}
+
+function returnToTitleFromLoadFailure() {
+  closeLoadFailureModal();
+  resetModesAndSelections();
+  showTitleScreen({ showStartButton: true });
+}
+
+function startFromTitleScreen() {
+  const startButton = document.getElementById("startupStartButton");
+  if (startButton) {
+    startButton.classList.remove("show");
+  }
+
+  startStartupToastTimer();
+  loadItems();
+}
+
+function retryLoadFromFailure() {
+  closeLoadFailureModal();
+  loadItems();
+}
+
 document.addEventListener("click", event => {
   if (!event.target.closest("#categoryPicker") && isCategoryPickerOpen) {
     closeCategoryPicker();
@@ -2174,19 +3208,25 @@ document.addEventListener("click", event => {
   if (event.target.closest("#loadFailureModal")) return;
 
   if (event.target.closest("#toast")) return;
+  if (event.target.closest("[data-action]")) return;
 
   hideToast();
 
-  if (swipedItemId && !event.target.closest(".swipe-frame")) {
+  if (swipedItemId && !event.target.closest(".swipe-action-button")) {
     closeSwipedItem();
   }
 });
 
+setupSafeActionHandlers();
 setupStartupScreen();
 startStartupToastTimer();
 setupPullToRefresh();
+setupSwipeCloseGuards();
 loadItems();
 
+// ========================================
+// 初期化
+// ========================================
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js");
 }
