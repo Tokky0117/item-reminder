@@ -1,10 +1,9 @@
 // ========================================
 // 基本設定
 // ========================================
-const APP_VERSION = "2.1.0";
+const APP_VERSION = "3.1.0";
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxDuS5ZIUcb6ifMwJ5S86CZrV7YCnMsolM0lKbw7p71CK2mn_lWtT1LRzt9iIGpX04h/exec";
 
-const SAVE_PAYLOAD_WARNING_LENGTH = 6000;
 
 const REFRESH_OFFSET = 56;
 const PULL_TRIGGER_DISTANCE = 72;
@@ -17,6 +16,47 @@ const BUTTON_TAP_MOVE_CANCEL_DISTANCE = 12;
 const SPARE_SAVE_DEBOUNCE_MS = 800;
 const SAVE_TIMEOUT_MS = 15000;
 
+const CLIENT_ID_STORAGE_KEY = "dailyReminderClientId";
+
+function getClientId() {
+  try {
+    let clientId = localStorage.getItem(CLIENT_ID_STORAGE_KEY);
+    if (!clientId) {
+      clientId = "c_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem(CLIENT_ID_STORAGE_KEY, clientId);
+    }
+    return clientId;
+  } catch (error) {
+    return "c_session_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
+  }
+}
+
+function createRequestId() {
+  return "r_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 12);
+}
+
+function createSaveRequest(mutation) {
+  return {
+    mutation: mutation || null,
+    clientId: getClientId(),
+    requestId: createRequestId()
+  };
+}
+
+function ensureSaveRequest(request) {
+  const source = request || {};
+  return {
+    mutation: source.mutation || null,
+    clientId: source.clientId || getClientId(),
+    requestId: source.requestId || createRequestId()
+  };
+}
+
+function cloneSaveRequest(request) {
+  return ensureSaveRequest(request);
+}
+
+
 const REORDER_HOLD_MS = 520;
 const COPY_FEEDBACK_MS = 1400;
 const REORDER_CANCEL_MOVE = 8;
@@ -26,10 +66,10 @@ const REORDER_AUTO_SCROLL_MAX_SPEED = 9;
 const ORDER_STEP = 1;
 
 const OWNER_TABS = [
-  { key: "共", full: "共同", short: "共" },
-  { key: "み", full: "みゆう", short: "み" },
-  { key: "か", full: "かずまさ", short: "か" },
-  { key: "all", full: "すべて", short: "全" }
+  { key: "共", full: "共同" },
+  { key: "み", full: "みゆう" },
+  { key: "か", full: "かずまさ" },
+  { key: "all", full: "すべて" }
 ];
 
 const OWNER_OPTIONS = [
@@ -64,6 +104,8 @@ let collapsedCategories = new Set();
 let pendingFocusItemId = null;
 let highlightedItemId = null;
 let highlightTimer = null;
+let recentlyToggledItemId = null;
+let recentlyToggledTimer = null;
 
 let modalMode = "add";
 let editingItemId = null;
@@ -101,8 +143,8 @@ let modalCategory = "other";
 let isCategoryPickerOpen = false;
 let isOwnerPickerOpen = false;
 
-let modeStartItems = null;
 let pendingUpdateAction = null;
+let pendingUpdateErrorCode = "";
 let pendingConflictAction = null;
 let serverVersion = 0;
 
@@ -126,10 +168,16 @@ let isPulling = false;
 
 let isLoadFailureModalOpen = false;
 let isConflictReloading = false;
-let lastSavePayloadLength = 0;
 
 let safeActionTouch = null;
 let suppressNativeClickUntil = 0;
+let wentBackgroundWhileSaving = false;
+let backgroundReturnCheckTimer = null;
+let isBackgroundSaveRecoveryRunning = false;
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 
 // ========================================
@@ -242,9 +290,6 @@ function executeSafeAction(element, event) {
       break;
     case "load-latest-conflict":
       loadLatestFromConflict();
-      break;
-    case "force-pending-conflict":
-      forcePendingConflictSave();
       break;
     case "return-title-load-failure":
       returnToTitleFromLoadFailure();
@@ -435,10 +480,6 @@ function cloneItems(sourceItems) {
   return JSON.parse(JSON.stringify(sourceItems));
 }
 
-function areItemsSame(a, b) {
-  return JSON.stringify(a || []) === JSON.stringify(b || []);
-}
-
 function areArraysSame(a, b) {
   if (!Array.isArray(a) || !Array.isArray(b)) return false;
   if (a.length !== b.length) return false;
@@ -448,11 +489,6 @@ function areArraysSame(a, b) {
   }
 
   return true;
-}
-
-function hasModeChanges() {
-  if (!modeStartItems) return false;
-  return !areItemsSame(items, modeStartItems);
 }
 
 function setOwnerTab(tabKey) {
@@ -499,7 +535,7 @@ function renderOwnerTabs() {
 
     button.type = "button";
     button.className = `owner-tab ${stockClass} ${isActive ? "active" : ""}`;
-    button.textContent = isActive ? tab.full : tab.short;
+    button.textContent = tab.full;
     button.setAttribute("aria-label", tab.full);
     button.disabled = isModeSaving || isReordering || isRefreshing;
     button.dataset.action = "set-owner-tab";
@@ -653,7 +689,6 @@ function updateActionButtons() {
   const cancelButton = document.getElementById("shoppingCancelTopButton");
   const addButton = document.querySelector(".add-top-button");
   const copyButton = document.getElementById("shoppingCopyButton");
-  const hasChanges = hasModeChanges();
 
   if (cancelButton) {
     cancelButton.disabled = isModeSaving || isReordering || isRefreshing;
@@ -664,14 +699,20 @@ function updateActionButtons() {
   }
 
   if (copyButton) {
-    copyButton.disabled = isModeSaving || isReordering || isRefreshing || getShoppingCopyItems().length === 0;
+    const copyCount = getShoppingCopyItems().length;
+    copyButton.disabled = isModeSaving || isReordering || isRefreshing || copyCount === 0;
   }
 
   if (purchaseCompleteButton) {
     const isSavingThisButton = isModeSaving && shoppingMode;
-    purchaseCompleteButton.disabled = isModeSaving || isRefreshing || !hasChanges;
+    const hasShoppingTargets = shoppingModeItemIds.size > 0;
+    const checkedCount = getCheckedShoppingItemCount();
+    purchaseCompleteButton.disabled = isModeSaving || isRefreshing || !hasShoppingTargets || checkedCount === 0;
     purchaseCompleteButton.classList.toggle("saving", isSavingThisButton);
-    purchaseCompleteButton.innerHTML = isSavingThisButton ? getSavingButtonHtml() : "購入確定";
+    purchaseCompleteButton.classList.toggle("has-checked", checkedCount > 0);
+    purchaseCompleteButton.innerHTML = isSavingThisButton
+      ? getSavingButtonHtml()
+      : "購入確定";
   }
 
   updateSaveStatusIndicator();
@@ -710,7 +751,6 @@ function resetModesAndSelections() {
   shoppingModeItemIds.clear();
   shoppingMode = false;
   isModeSaving = false;
-  modeStartItems = null;
   swipedItemId = null;
   resetPullRefreshVisual();
 }
@@ -735,6 +775,7 @@ function applyLoadedItemsResponse(response) {
   render();
   hideStartupScreen();
 }
+
 
 function loadItems(options = {}) {
   const fromPull = options.fromPull === true;
@@ -789,9 +830,42 @@ function loadItems(options = {}) {
   document.body.appendChild(script);
 }
 
-async function loadLatestItemsForConflictCancel() {
+async function reloadLatestItemsFromServer() {
   const response = await requestJsonp({});
   applyLoadedItemsResponse(response);
+}
+
+function clearPendingSaveState() {
+  pendingUpdateAction = null;
+  pendingUpdateErrorCode = "";
+  pendingConflictAction = null;
+  pendingSpareChanges.clear();
+  if (spareSaveTimer) {
+    clearTimeout(spareSaveTimer);
+    spareSaveTimer = null;
+  }
+  immediateSaveQueue = [];
+  immediateSaveQueued = false;
+}
+
+async function discardPendingChangesAndReloadLatest(message) {
+  clearPendingSaveState();
+  resetModesAndSelections();
+  hideToast();
+  resetPullRefreshVisual();
+  openBlockingLoadingModal("最新読み込み", "最新リストを読み込んでいます。");
+
+  try {
+    await reloadLatestItemsFromServer();
+    closeBlockingLoadingModal();
+    if (message) {
+      showToast(message);
+    }
+  } catch (error) {
+    console.error(error);
+    closeBlockingLoadingModal();
+    openLoadFailureModal("リストを読み込めませんでした。\n通信状況を確認してください。");
+  }
 }
 
 function requestJsonp(params) {
@@ -852,29 +926,13 @@ function requestJsonp(params) {
   });
 }
 
-function buildSavePayload(force) {
-  return {
-    action: "saveAll",
-    baseVersion: serverVersion || 0,
-    force: force === true,
-    items: items
-  };
-}
-
-function getSavePayloadText(force) {
-  return JSON.stringify(buildSavePayload(force));
-}
-
-function isLargeSavePayload() {
-  return lastSavePayloadLength >= SAVE_PAYLOAD_WARNING_LENGTH;
-}
-
-function createSavePayload(action, data = {}, force = false) {
+function createSavePayload(action, data = {}, requestMeta = {}) {
   return {
     ...data,
-    action: action || "saveAll",
+    action: action,
     baseVersion: serverVersion || 0,
-    force: force === true
+    clientId: requestMeta.clientId || getClientId(),
+    requestId: requestMeta.requestId || createRequestId()
   };
 }
 
@@ -913,21 +971,33 @@ function buildSaveMutation(action, data = {}) {
 }
 
 async function saveItemsToServer(options = {}) {
-  const force = options.force === true;
   const mutation = options.mutation || null;
-  const action = mutation && mutation.action ? mutation.action : "saveAll";
-  const payload = mutation
-    ? createSavePayload(action, mutation, force)
-    : buildSavePayload(force);
+  const action = mutation && mutation.action ? mutation.action : "";
+  if (!mutation || !action) {
+    throw createSaveError({ status: "error", code: "D01", message: "Missing save action" }, "保存処理が不正です", "D01");
+  }
+  const requestMeta = {
+    clientId: options.clientId || getClientId(),
+    requestId: options.requestId || createRequestId()
+  };
+  const payload = createSavePayload(action, mutation, requestMeta);
 
   const payloadText = JSON.stringify(payload);
-  lastSavePayloadLength = payloadText.length;
-
   return requestJsonp({
     action: action,
     baseVersion: String(serverVersion || 0),
-    force: force ? "true" : "false",
+    clientId: requestMeta.clientId,
+    requestId: requestMeta.requestId,
     payload: payloadText
+  });
+}
+
+function saveRequestToServer(request) {
+  const safeRequest = ensureSaveRequest(request);
+  return saveItemsToServer({
+    mutation: safeRequest.mutation,
+    clientId: safeRequest.clientId,
+    requestId: safeRequest.requestId
   });
 }
 
@@ -960,11 +1030,16 @@ function hasPendingSaveWork() {
 
 function updateSaveStatusIndicator() {
   const saveStatus = document.getElementById("saveStatus");
-  if (!saveStatus) return;
-
   const visible = !shoppingMode && hasPendingSaveWork();
-  saveStatus.textContent = visible ? "保存中…" : "";
-  saveStatus.classList.toggle("visible", visible);
+
+  if (saveStatus) {
+    saveStatus.textContent = visible ? "保存中…" : "";
+    saveStatus.classList.toggle("visible", visible);
+  }
+
+  if (document.getElementById("app")) {
+    updateAppModeClasses();
+  }
 }
 
 function hasImmediateSaveWork() {
@@ -1013,12 +1088,15 @@ function scheduleSpareSave(id, hasSpare) {
   updateSaveStatusIndicator();
 }
 
-async function saveSpareChanges(changes, force = false) {
+function createSpareChangesRequest(changes) {
   const mutation = buildSaveMutation("updateSpares", {
     changes: changes
   });
+  return createSaveRequest(mutation);
+}
 
-  return saveItemsToServer({ mutation: mutation, force: force });
+function saveSpareChangesRequest(request) {
+  return saveRequestToServer(request);
 }
 
 function createDeferredPromise() {
@@ -1031,7 +1109,7 @@ function createDeferredPromise() {
   return { promise, resolve, reject };
 }
 
-async function flushSpareChanges(force = false) {
+async function flushSpareChanges() {
   if (isSpareBatchSaveRunning) {
     if (spareBatchSavePromise) {
       await spareBatchSavePromise;
@@ -1042,7 +1120,7 @@ async function flushSpareChanges(force = false) {
   // 追加・編集・削除・並び替えなどの保存が先に走っている場合は、
   // 在庫トグルの一括保存を送信せず、先行保存の完了後にまとめて送る。
   // 送信直前の最新 serverVersion を使うため。
-  if (!force && hasImmediateSaveWork()) {
+  if (hasImmediateSaveWork()) {
     deferSpareFlushUntilImmediateSaveDone();
     return true;
   }
@@ -1060,6 +1138,7 @@ async function flushSpareChanges(force = false) {
   }
 
   const changes = buildSpareChangesPayload(pendingSpareChanges);
+  const request = createSpareChangesRequest(changes);
   pendingSpareChanges.clear();
   isSpareBatchSaveRunning = true;
   const spareBatchDeferred = createDeferredPromise();
@@ -1068,7 +1147,7 @@ async function flushSpareChanges(force = false) {
   updateSaveStatusIndicator();
 
   try {
-    const result = await saveSpareChanges(changes, force);
+    const result = await saveSpareChangesRequest(request);
 
     if (isOkResult(result)) {
       applySaveSuccess(result);
@@ -1077,8 +1156,7 @@ async function flushSpareChanges(force = false) {
     }
 
     if (isConflictResult(result)) {
-      pendingConflictAction = () => saveSpareChangesFromPendingAction(changes, true);
-      pendingConflictAction._actionName = "updateSpares";
+      pendingConflictAction = null;
       openConflictModal();
       return false;
     }
@@ -1086,8 +1164,9 @@ async function flushSpareChanges(force = false) {
     throw createSaveError(result, "保存に失敗しました", "S01");
   } catch (error) {
     console.error(error);
-    pendingUpdateAction = () => saveSpareChangesFromPendingAction(changes, force);
+    pendingUpdateAction = () => saveSpareChangesFromPendingAction(request);
     pendingUpdateAction._actionName = "updateSpares";
+    pendingUpdateAction._pendingRequests = [cloneSaveRequest(request)];
     openUpdateRetryModal(error && error.code ? error.code : "N01");
     return false;
   } finally {
@@ -1106,12 +1185,13 @@ async function flushSpareChanges(force = false) {
   }
 }
 
-async function saveSpareChangesFromPendingAction(changes, force = false) {
+async function saveSpareChangesFromPendingAction(request) {
+  const safeRequest = cloneSaveRequest(request);
   isSpareBatchSaveRunning = true;
   updateSaveStatusIndicator();
 
   try {
-    const result = await saveSpareChanges(changes, force);
+    const result = await saveSpareChangesRequest(safeRequest);
 
     if (isOkResult(result)) {
       applySaveSuccess(result);
@@ -1119,8 +1199,7 @@ async function saveSpareChangesFromPendingAction(changes, force = false) {
     }
 
     if (isConflictResult(result)) {
-      pendingConflictAction = () => saveSpareChangesFromPendingAction(changes, true);
-      pendingConflictAction._actionName = "updateSpares";
+      pendingConflictAction = null;
       openConflictModal();
       return;
     }
@@ -1128,8 +1207,9 @@ async function saveSpareChangesFromPendingAction(changes, force = false) {
     throw createSaveError(result, "保存に失敗しました", "S01");
   } catch (error) {
     console.error(error);
-    pendingUpdateAction = () => saveSpareChangesFromPendingAction(changes, force);
+    pendingUpdateAction = () => saveSpareChangesFromPendingAction(safeRequest);
     pendingUpdateAction._actionName = "updateSpares";
+    pendingUpdateAction._pendingRequests = [cloneSaveRequest(safeRequest)];
     openUpdateRetryModal(error && error.code ? error.code : "N01");
   } finally {
     isSpareBatchSaveRunning = false;
@@ -1138,35 +1218,32 @@ async function saveSpareChangesFromPendingAction(changes, force = false) {
 }
 
 function getMutationActionName(mutation) {
-  return mutation && mutation.action ? String(mutation.action) : "saveAll";
+  return mutation && mutation.action ? String(mutation.action) : "unknown";
 }
 
-function createPendingUpdateAction(mutation, force) {
-  const action = () => saveImmediateChange(mutation, force);
+function createPendingUpdateAction(mutation) {
+  const request = createSaveRequest(mutation || null);
+  const action = () => runImmediateSaveRequests([request]);
   action._actionName = getMutationActionName(mutation);
+  action._pendingRequests = [cloneSaveRequest(request)];
   return action;
 }
 
-function normalizeSaveImmediateArgs(mutationOrForce, maybeForce) {
-  if (typeof mutationOrForce === "boolean") {
-    return {
-      mutation: null,
-      force: mutationOrForce === true
-    };
-  }
-
-  return {
-    mutation: mutationOrForce || null,
-    force: maybeForce === true
-  };
+function createPendingImmediateRequestsAction(requests) {
+  const retryRequests = clonePendingRequests(requests);
+  const action = () => runImmediateSaveRequests(retryRequests);
+  const firstMutation = retryRequests.length > 0 ? retryRequests[0].mutation : null;
+  action._actionName = getMutationActionName(firstMutation);
+  action._pendingRequests = clonePendingRequests(retryRequests);
+  return action;
 }
 
-async function saveImmediateChange(mutationOrForce = null, maybeForce = false) {
-  const args = normalizeSaveImmediateArgs(mutationOrForce, maybeForce);
-  const firstRequest = {
-    mutation: args.mutation,
-    force: args.force
-  };
+async function runImmediateSaveRequests(requests) {
+  const requestQueue = requests
+    .filter(request => request)
+    .map(request => cloneSaveRequest(request));
+
+  if (requestQueue.length === 0) return;
 
   if (isSpareBatchSaveRunning && spareBatchSavePromise) {
     await spareBatchSavePromise;
@@ -1180,7 +1257,7 @@ async function saveImmediateChange(mutationOrForce = null, maybeForce = false) {
   }
 
   if (isImmediateSaveRunning) {
-    immediateSaveQueue.push(firstRequest);
+    immediateSaveQueue.push(...requestQueue);
     immediateSaveQueued = true;
     updateSaveStatusIndicator();
     return;
@@ -1189,39 +1266,35 @@ async function saveImmediateChange(mutationOrForce = null, maybeForce = false) {
   isImmediateSaveRunning = true;
   updateSaveStatusIndicator();
 
-  try {
-    let currentRequest = firstRequest;
+  let currentRequest = requestQueue.shift() || null;
 
+  try {
     while (currentRequest) {
-      immediateSaveQueued = immediateSaveQueue.length > 0;
+      immediateSaveQueued = immediateSaveQueue.length > 0 || requestQueue.length > 0;
 
       const mutation = currentRequest.mutation;
-      const force = currentRequest.force === true;
-      const result = await saveItemsToServer({ mutation: mutation, force: force });
+      const result = await saveRequestToServer(currentRequest);
 
       if (isOkResult(result)) {
         applySaveSuccess(result);
       } else if (isConflictResult(result)) {
         immediateSaveQueue = [];
         immediateSaveQueued = false;
-        pendingConflictAction = () => saveImmediateChange(mutation, true);
-        pendingConflictAction._actionName = getMutationActionName(mutation);
+        pendingConflictAction = null;
         openConflictModal();
         return;
       } else {
         throw createSaveError(result, "保存に失敗しました", "S01");
       }
 
-      currentRequest = immediateSaveQueue.shift() || null;
+      currentRequest = requestQueue.shift() || immediateSaveQueue.shift() || null;
     }
   } catch (error) {
     console.error(error);
+    const remainingRequests = currentRequest ? [currentRequest, ...requestQueue, ...immediateSaveQueue] : [...requestQueue, ...immediateSaveQueue];
     immediateSaveQueue = [];
     immediateSaveQueued = false;
-    pendingUpdateAction = createPendingUpdateAction(
-      (typeof currentRequest !== "undefined" && currentRequest && currentRequest.mutation) ? currentRequest.mutation : firstRequest.mutation,
-      (typeof currentRequest !== "undefined" && currentRequest && currentRequest.force === true) || firstRequest.force === true
-    );
+    pendingUpdateAction = createPendingImmediateRequestsAction(remainingRequests);
     openUpdateRetryModal(error && error.code ? error.code : "N01");
   } finally {
     isImmediateSaveRunning = false;
@@ -1235,8 +1308,13 @@ async function saveImmediateChange(mutationOrForce = null, maybeForce = false) {
   }
 }
 
-async function commitModeAndExit(successMessage, force = false) {
-  if (!hasModeChanges()) return;
+async function saveImmediateChange(mutation = null) {
+  const firstRequest = createSaveRequest(mutation);
+
+  return runImmediateSaveRequests([firstRequest]);
+}
+
+async function commitModeAndExit(successMessage, existingRequest = null) {
   if (isModeSaving) return;
 
   const purchaseIds = Array.from(shoppingModeItemIds).filter(id => {
@@ -1244,13 +1322,16 @@ async function commitModeAndExit(successMessage, force = false) {
     return item && item.hasSpare === true;
   });
 
+  if (!existingRequest && purchaseIds.length === 0) return;
+
+  const request = existingRequest
+    ? cloneSaveRequest(existingRequest)
+    : createSaveRequest(buildSaveMutation("completePurchase", { ids: purchaseIds }));
+
   setModeSaving(true);
 
   try {
-    const mutation = buildSaveMutation("completePurchase", {
-      ids: purchaseIds
-    });
-    const result = await saveItemsToServer({ mutation: mutation, force: force });
+    const result = await saveRequestToServer(request);
 
     if (isOkResult(result)) {
       applySaveSuccess(result);
@@ -1258,7 +1339,6 @@ async function commitModeAndExit(successMessage, force = false) {
       shoppingMode = false;
       isModeSaving = false;
       shoppingModeItemIds.clear();
-      modeStartItems = null;
       resetPullRefreshVisual();
       render();
 
@@ -1268,7 +1348,7 @@ async function commitModeAndExit(successMessage, force = false) {
 
     if (isConflictResult(result)) {
       setModeSaving(false);
-      pendingConflictAction = () => commitModeAndExit(successMessage, true);
+      pendingConflictAction = null;
       openConflictModal();
       return;
     }
@@ -1277,16 +1357,29 @@ async function commitModeAndExit(successMessage, force = false) {
   } catch (error) {
     console.error(error);
     setModeSaving(false);
-    pendingUpdateAction = () => commitModeAndExit(successMessage, force);
+    pendingUpdateAction = () => commitModeAndExit(successMessage, request);
+    pendingUpdateAction._actionName = "completePurchase";
+    pendingUpdateAction._pendingRequests = [cloneSaveRequest(request)];
     openUpdateRetryModal(error && error.code ? error.code : "N01");
   }
 }
 
+function restoreShoppingModeDraftChanges() {
+  if (!shoppingMode || shoppingModeItemIds.size === 0) return;
+
+  const targetIds = new Set(shoppingModeItemIds);
+  items = items.map(item => {
+    if (!targetIds.has(item.id)) return item;
+    if (item.hasSpare === false) return item;
+    return { ...item, hasSpare: false };
+  });
+}
+
 function exitModeWithoutSaving() {
+  restoreShoppingModeDraftChanges();
   shoppingMode = false;
   isModeSaving = false;
   shoppingModeItemIds.clear();
-  modeStartItems = null;
   resetPullRefreshVisual();
   render();
 }
@@ -1349,12 +1442,12 @@ function render() {
   }
 
   let previousCategory = null;
-
   displayItems.forEach(item => {
     const currentCategory = item.category || "other";
 
     if (currentCategory !== previousCategory) {
-      container.appendChild(createCategoryHeading(currentCategory));
+      const categoryCount = displayItems.filter(displayItem => (displayItem.category || "other") === currentCategory).length;
+      container.appendChild(createCategoryHeading(currentCategory, false, categoryCount));
       previousCategory = currentCategory;
     }
 
@@ -1456,9 +1549,11 @@ function updateAppModeClasses() {
   const copyButton = document.getElementById("shoppingCopyButton");
   const themeColorMeta = document.getElementById("themeColorMeta");
 
-  app.classList.toggle("shopping-mode", shoppingMode);
-  app.classList.toggle("reordering", isReordering);
-  app.classList.toggle("has-swipe-open", !!swipedItemId);
+  if (app) {
+    app.classList.toggle("shopping-mode", shoppingMode);
+    app.classList.toggle("reordering", isReordering);
+    app.classList.toggle("has-swipe-open", !!swipedItemId);
+  }
   document.body.classList.toggle("shopping-mode", shoppingMode);
 
   if (themeColorMeta) {
@@ -1466,7 +1561,7 @@ function updateAppModeClasses() {
   }
 
   if (shoppingButton) {
-    shoppingButton.disabled = isModeSaving || isReordering;
+    shoppingButton.disabled = isModeSaving || isReordering || isRefreshing || (!shoppingMode && hasPendingSaveWork());
   }
 
   if (cancelButton) {
@@ -1478,11 +1573,12 @@ function updateAppModeClasses() {
   }
 
   if (copyButton) {
-    copyButton.disabled = isModeSaving || isReordering || isRefreshing || getShoppingCopyItems().length === 0;
+    const copyCount = getShoppingCopyItems().length;
+    copyButton.disabled = isModeSaving || isReordering || isRefreshing || copyCount === 0;
   }
 
   if (appTitle) {
-    appTitle.textContent = shoppingMode ? "買い物モード" : "日用品リスト";
+    appTitle.textContent = shoppingMode ? "買い物リスト" : "日用品リスト";
   }
 }
 
@@ -1555,6 +1651,15 @@ function resetPullRefreshVisual() {
   }, 240);
 }
 
+
+function isItemHorizontalSwipeActive() {
+  return !!swipeItemId && swipeDirection === "horizontal";
+}
+
+function shouldBlockPullRefreshBySwipe() {
+  return isItemHorizontalSwipeActive();
+}
+
 function setupPullToRefresh() {
   const container = document.getElementById("items");
 
@@ -1571,7 +1676,7 @@ function setupPullToRefresh() {
 
   container.addEventListener("touchmove", event => {
     if (!isPulling) return;
-    if (shoppingMode || isModeSaving || isReordering || isRefreshing || isBlockingModalOpen()) {
+    if (shoppingMode || isModeSaving || isReordering || isRefreshing || isBlockingModalOpen() || shouldBlockPullRefreshBySwipe()) {
       resetPullRefreshVisual();
       return;
     }
@@ -1602,7 +1707,8 @@ function setupPullToRefresh() {
       !isModeSaving &&
       !isReordering &&
       !isRefreshing &&
-      !isBlockingModalOpen();
+      !isBlockingModalOpen() &&
+      !shouldBlockPullRefreshBySwipe();
 
     isPulling = false;
 
@@ -1635,6 +1741,32 @@ function finishPullRefresh() {
   });
 }
 
+function sortShoppingItems(sourceItems) {
+  return sourceItems
+    .map(item => ({
+      item: item,
+      originalIndex: items.findIndex(baseItem => baseItem.id === item.id)
+    }))
+    .sort((a, b) => {
+      const categoryDiff =
+        getCategoryOrder(a.item.category || "other") -
+        getCategoryOrder(b.item.category || "other");
+
+      if (categoryDiff !== 0) {
+        return categoryDiff;
+      }
+
+
+      const orderDiff = getOrderValue(a.item) - getOrderValue(b.item);
+      if (orderDiff !== 0) {
+        return orderDiff;
+      }
+
+      return a.originalIndex - b.originalIndex;
+    })
+    .map(entry => entry.item);
+}
+
 function getDisplayItems() {
   let displayItems = shoppingMode
     ? items.filter(item => shoppingModeItemIds.has(item.id))
@@ -1644,7 +1776,16 @@ function getDisplayItems() {
     displayItems = displayItems.filter(item => item.icon === activeOwnerTab);
   }
 
-  return sortItemsByCategory(displayItems);
+  return shoppingMode ? sortShoppingItems(displayItems) : sortItemsByCategory(displayItems);
+}
+
+function getCheckedShoppingItemCount() {
+  if (!shoppingMode) return 0;
+
+  return Array.from(shoppingModeItemIds).filter(id => {
+    const item = items.find(baseItem => baseItem.id === id);
+    return item && item.hasSpare === true;
+  }).length;
 }
 
 function getVisibleReorderItemsForCategory(category) {
@@ -1679,7 +1820,7 @@ function createCheckSvg() {
   `;
 }
 
-function createCategoryHeading(category) {
+function createCategoryHeading(category, showStockLegend = false, count = 0) {
   const heading = document.createElement("div");
   const isCollapsed = collapsedCategories.has(category || "other");
   const arrowDirection = isCollapsed ? "down" : "up";
@@ -1695,6 +1836,7 @@ function createCategoryHeading(category) {
       aria-label="${getCategoryName(category || "other")}の表示切り替え"
     >
       <span>${getCategoryName(category || "other")}</span>
+      <span class="category-count" aria-hidden="true">${count}件</span>
       <span class="category-arrow" aria-hidden="true">
         ${createDoubleChevronSvg(arrowDirection)}
       </span>
@@ -1708,8 +1850,8 @@ function renderEmptyShoppingMessage(container) {
   const empty = document.createElement("div");
   empty.className = "empty-list-message";
   empty.textContent = activeOwnerTab === "all"
-    ? "買い物対象はありません"
-    : getOwnerName(activeOwnerTab) + "の買い物対象はありません";
+    ? "不足しているものはありません"
+    : getOwnerName(activeOwnerTab) + "の不足しているものはありません";
   container.appendChild(empty);
 }
 
@@ -1733,7 +1875,8 @@ function createItemRow(item) {
   const shouldHighlight = highlightedItemId === item.id;
   const row = document.createElement("div");
 
-  row.className = `row ${isOpen ? "swipe-open" : ""} ${isActiveReorder ? "reorder-active" : ""} ${shouldHighlight ? "item-highlight" : ""}`;
+  const wasRecentlyToggled = recentlyToggledItemId === item.id;
+  row.className = `row ${item.hasSpare ? "has-spare" : "no-spare"} ${isOpen ? "swipe-open" : ""} ${isActiveReorder ? "reorder-active" : ""} ${shouldHighlight ? "item-highlight" : ""} ${wasRecentlyToggled ? "stock-just-toggled" : ""}`;
   row.dataset.itemId = item.id;
 
   if (isActiveReorder) {
@@ -1815,13 +1958,14 @@ function createShoppingCheckHtml(item, index) {
           <path d="M3.2 8.3L6.5 11.3L12.8 4.7"></path>
         </svg>
       </span>
-      <span>購入</span>
+      <span>${checked ? "済み" : "購入"}</span>
     </button>
   `;
 }
 
 function createStockToggleHtml(item, index) {
-  const label = item.hasSpare ? "在庫あり" : "在庫なし";
+  const label = item.hasSpare ? "不足にする" : "ありにする";
+  const text = item.hasSpare ? "あり" : "不足";
   const className = item.hasSpare ? "has-spare" : "no-spare";
 
   return `
@@ -1832,11 +1976,9 @@ function createStockToggleHtml(item, index) {
       data-action="toggle-spare"
       data-index="${index}"
       aria-label="${label}"
+      title="${label}"
     >
-      <span class="stock-toggle-track">
-        <span class="stock-toggle-knob" aria-hidden="true"></span>
-        <span class="stock-toggle-text">${label}</span>
-      </span>
+      <span class="spare-badge-text">${text}</span>
     </button>
   `;
 }
@@ -1923,6 +2065,12 @@ function moveItemTouch(event) {
 
   if (swipeDirection === "vertical") {
     swipeCanceled = true;
+    if (swipedItemId && swipeItemId === swipedItemId) {
+      swipedItemId = null;
+      cancelItemTouch();
+      render();
+      return;
+    }
     cancelItemTouch();
     return;
   }
@@ -2485,6 +2633,12 @@ function toggleSpare(index) {
 
   closeSwipedItemWithoutRender();
   items[index].hasSpare = !items[index].hasSpare;
+  recentlyToggledItemId = items[index].id;
+  clearTimeout(recentlyToggledTimer);
+  recentlyToggledTimer = setTimeout(() => {
+    recentlyToggledItemId = null;
+    render();
+  }, 420);
 
   if (shoppingMode) {
     render();
@@ -2496,6 +2650,11 @@ function toggleSpare(index) {
 
 
 function getShoppingCopyItems() {
+  if (shoppingMode && shoppingModeItemIds.size > 0) {
+    const targetIds = new Set(shoppingModeItemIds);
+    return sortItemsByCategory(items.filter(item => targetIds.has(item.id)));
+  }
+
   return sortItemsByCategory(items.filter(item => !item.hasSpare));
 }
 
@@ -2530,7 +2689,7 @@ function buildShoppingListText() {
       previousCategory = category;
     }
 
-    lines.push(`・${item.name}${getOwnerSuffix(item.icon)}`);
+    lines.push(`□ ${item.name}${getOwnerSuffix(item.icon)}`);
 
     if (item.note) {
       lines.push(`  メモ：${item.note}`);
@@ -2586,7 +2745,7 @@ async function copyShoppingList(event) {
   const targetItems = getShoppingCopyItems();
 
   if (targetItems.length === 0) {
-    showToast("コピーする買い物リストがありません");
+    showToast("コピーするものがありません");
     return;
   }
 
@@ -2600,11 +2759,11 @@ async function copyShoppingList(event) {
     }
 
     showCopyButtonDone();
-    showToast("買い物リストをコピーしました", COPY_FEEDBACK_MS);
+    showToast("コピーしました", COPY_FEEDBACK_MS);
   } catch (error) {
     if (copyTextFallback(text)) {
       showCopyButtonDone();
-      showToast("買い物リストをコピーしました", COPY_FEEDBACK_MS);
+      showToast("コピーしました", COPY_FEEDBACK_MS);
     } else {
       showToast("コピーできませんでした");
     }
@@ -2612,13 +2771,12 @@ async function copyShoppingList(event) {
 }
 
 function toggleShoppingMode() {
-  if (isModeSaving || isReordering) return;
+  if (isModeSaving || isReordering || isRefreshing || hasPendingSaveWork()) return;
   if (closeSwipedItemIfOpen()) return;
 
   closeSwipedItemWithoutRender();
 
   shoppingMode = true;
-  modeStartItems = cloneItems(items);
   resetPullRefreshVisual();
 
   shoppingModeItemIds = new Set(
@@ -2951,7 +3109,22 @@ function confirmDeleteItem() {
 }
 
 function openPurchaseConfirm() {
-  if (!shoppingMode || !hasModeChanges() || isModeSaving) return;
+  if (!shoppingMode || isModeSaving) return;
+
+  const hasCheckedPurchaseItems = Array.from(shoppingModeItemIds).some(id => {
+    const item = items.find(baseItem => baseItem.id === id);
+    return item && item.hasSpare === true;
+  });
+
+  if (!hasCheckedPurchaseItems) {
+    return;
+  }
+
+  const message = document.getElementById("purchaseConfirmMessage");
+  if (message) {
+    message.textContent = "チェックした日用品を購入済みにしますか？";
+  }
+
   document.getElementById("purchaseConfirmModal").classList.add("show");
 }
 
@@ -2973,14 +3146,14 @@ function openHomeCancelConfirm() {
   if (isModeSaving) return;
   if (!shoppingMode) return;
 
-  if (!hasModeChanges()) {
+  if (getCheckedShoppingItemCount() === 0) {
     exitModeWithoutSaving();
     return;
   }
 
   const message = document.getElementById("homeCancelConfirmMessage");
   if (message) {
-    message.textContent = "購入をキャンセルしますか？";
+    message.textContent = "購入チェックを破棄して戻りますか？";
   }
 
   document.getElementById("homeCancelConfirmModal").classList.add("show");
@@ -2996,24 +3169,24 @@ function confirmHomeCancel() {
 
   closeHomeCancelConfirm();
 
-  if (modeStartItems) {
-    items = cloneItems(modeStartItems);
-  }
-
   exitModeWithoutSaving();
 }
 
 function getUpdateRetryMessage() {
-  let message = "サーバーへの更新に失敗しました。\n画面上の変更はまだ保存されていません。";
-
-  if (isLargeSavePayload()) {
-    message += "\nデータ量が多くなっている可能性があります。";
-  }
-
-  return message;
+  return "保存結果を確認できませんでした。\n通信状況を確認して、再更新してください。";
 }
 
-function openUpdateRetryModal(errorCode) {
+function openUpdateRetryModal(errorCode, options = {}) {
+  pendingUpdateErrorCode = errorCode ? String(errorCode) : "";
+
+  if (!options.forceShow && ((document.hidden && wentBackgroundWhileSaving) || isBackgroundSaveRecoveryRunning)) {
+    return;
+  }
+
+  if (isConflictReloading) {
+    closeConflictModal();
+  }
+
   hideToast();
   resetPullRefreshVisual();
 
@@ -3033,33 +3206,61 @@ function closeUpdateRetryModal() {
   document.getElementById("updateRetryModal").classList.remove("show");
 }
 
-function retryPendingUpdate() {
+async function retryPendingUpdate() {
   closeUpdateRetryModal();
 
   if (typeof pendingUpdateAction === "function") {
     const action = pendingUpdateAction;
     pendingUpdateAction = null;
-    action();
+    pendingUpdateErrorCode = "";
+
+    openBlockingLoadingModal("再更新中", "変更内容を保存しています。");
+
+    try {
+      await Promise.resolve(action());
+    } finally {
+      if (isConflictReloading) {
+        closeConflictModal();
+      }
+    }
   }
 }
 
 async function cancelPendingUpdate() {
   closeUpdateRetryModal();
-  pendingUpdateAction = null;
-  resetModesAndSelections();
+  await discardPendingChangesAndReloadLatest("最新状態に戻しました");
+}
+
+function openBlockingLoadingModal(titleText, messageText) {
   hideToast();
   resetPullRefreshVisual();
-  setConflictModalLoading(true);
-  document.getElementById("conflictModal").classList.add("show");
 
-  try {
-    await loadLatestItemsForConflictCancel();
+  isConflictReloading = true;
+
+  const title = document.getElementById("conflictTitle");
+  const message = document.getElementById("conflictMessage");
+  const actions = document.getElementById("conflictActions");
+
+  if (title) {
+    title.textContent = titleText || "処理中";
+  }
+
+  if (message) {
+    const safeMessage = escapeHtml(messageText || "しばらくお待ちください。");
+    message.innerHTML = '<span class="inline-spinner" aria-hidden="true"></span><span>' + safeMessage + '</span>';
+    message.classList.add("loading-message");
+  }
+
+  if (actions) {
+    actions.style.display = "none";
+  }
+
+  document.getElementById("conflictModal").classList.add("show");
+}
+
+function closeBlockingLoadingModal() {
+  if (isConflictReloading) {
     closeConflictModal();
-    showToast("更新をキャンセルし、最新リストを読み込みました");
-  } catch (error) {
-    console.error(error);
-    closeConflictModal();
-    openLoadFailureModal("リストを読み込めませんでした。\n通信状況を確認してください。");
   }
 }
 
@@ -3070,7 +3271,7 @@ function setConflictModalLoading(isLoading) {
   const actions = document.getElementById("conflictActions");
 
   if (title) {
-    title.textContent = isLoading ? "更新キャンセル" : "更新確認";
+    title.textContent = isLoading ? "最新読み込み" : "他の端末で更新されています";
   }
 
   if (message) {
@@ -3078,7 +3279,7 @@ function setConflictModalLoading(isLoading) {
       message.innerHTML = '<span class="inline-spinner" aria-hidden="true"></span><span>最新リストを読み込んでいます。</span>';
       message.classList.add("loading-message");
     } else {
-      message.innerHTML = "他の端末でリストが更新されています。<br>更新すると、他の端末の変更が上書きされる可能性があります。";
+      message.innerHTML = "他の端末でリストが更新されています。<br>最新リストを読み込んでください。";
       message.classList.remove("loading-message");
     }
   }
@@ -3101,29 +3302,8 @@ function closeConflictModal() {
 }
 
 async function loadLatestFromConflict() {
-  pendingConflictAction = null;
-  resetModesAndSelections();
-  setConflictModalLoading(true);
-
-  try {
-    await loadLatestItemsForConflictCancel();
-    closeConflictModal();
-    showToast("最新リストを読み込みました");
-  } catch (error) {
-    console.error(error);
-    closeConflictModal();
-    openLoadFailureModal("リストを読み込めませんでした。\n通信状況を確認してください。");
-  }
-}
-
-function forcePendingConflictSave() {
   closeConflictModal();
-
-  if (typeof pendingConflictAction === "function") {
-    const action = pendingConflictAction;
-    pendingConflictAction = null;
-    action();
-  }
+  await discardPendingChangesAndReloadLatest("最新リストを読み込みました");
 }
 
 function openLoadFailureModal(message) {
@@ -3167,6 +3347,146 @@ function showTitleScreen(options = {}) {
     screen.classList.remove("hide");
     screen.classList.remove("show-toast");
   }
+}
+
+function isAnySaveRunningNow() {
+  return isImmediateSaveRunning || isSpareBatchSaveRunning || isModeSaving;
+}
+
+function rememberBackgroundSaveState() {
+  if (hasPendingSaveWork() || isModeSaving || typeof pendingUpdateAction === "function") {
+    wentBackgroundWhileSaving = true;
+  }
+}
+
+function scheduleBackgroundReturnCheck(delay = 180) {
+  if (backgroundReturnCheckTimer) {
+    clearTimeout(backgroundReturnCheckTimer);
+  }
+  backgroundReturnCheckTimer = setTimeout(() => {
+    backgroundReturnCheckTimer = null;
+    handleBackgroundReturnAfterSave();
+  }, delay);
+}
+
+function getResponseVersion(response) {
+  if (response && !Array.isArray(response) && response.version !== undefined) {
+    const version = Number(response.version);
+    return Number.isFinite(version) ? version : 0;
+  }
+  return 0;
+}
+
+function getPendingBackgroundRequestsForCheck() {
+  if (typeof pendingUpdateAction === "function" && Array.isArray(pendingUpdateAction._pendingRequests)) {
+    return clonePendingRequests(pendingUpdateAction._pendingRequests);
+  }
+
+  if (pendingSpareChanges.size > 0) {
+    const changes = buildSpareChangesPayload(pendingSpareChanges);
+    return [{
+      mutation: buildSaveMutation("updateSpares", { changes: changes })
+    }];
+  }
+
+  if (immediateSaveQueue.length > 0) {
+    return clonePendingRequests(immediateSaveQueue);
+  }
+
+  return [];
+}
+
+async function retryPendingWorkAfterBackground() {
+  if (typeof pendingUpdateAction === "function") {
+    const action = pendingUpdateAction;
+    pendingUpdateAction = null;
+    pendingUpdateErrorCode = "";
+    await Promise.resolve(action());
+    return;
+  }
+
+  if (pendingSpareChanges.size > 0 || spareSaveTimer) {
+    await flushSpareChanges();
+    return;
+  }
+
+  if (immediateSaveQueue.length > 0 && !isImmediateSaveRunning) {
+    const queuedRequests = clonePendingRequests(immediateSaveQueue);
+    immediateSaveQueue = [];
+    immediateSaveQueued = false;
+    await runImmediateSaveRequests(queuedRequests);
+  }
+}
+
+function isModalVisible(id) {
+  const modal = document.getElementById(id);
+  return !!(modal && modal.classList.contains("show"));
+}
+
+async function handleBackgroundReturnAfterSave() {
+  if (!wentBackgroundWhileSaving || isBackgroundSaveRecoveryRunning) return;
+
+  const hasWorkOnReturn = isAnySaveRunningNow() || hasPendingSaveWork() || typeof pendingUpdateAction === "function";
+  if (!hasWorkOnReturn) {
+    wentBackgroundWhileSaving = false;
+    return;
+  }
+
+  isBackgroundSaveRecoveryRunning = true;
+  wentBackgroundWhileSaving = false;
+  openBlockingLoadingModal("保存確認中", "保存中の変更を確認しています。");
+
+  try {
+    // 復帰時点で通信中の保存がある場合は、先に画面をロックして完了を待つ。
+    // 完了後に未送信キューや更新失敗が残っていれば、同じ requestId のまま再処理する。
+    while (isAnySaveRunningNow()) {
+      await wait(250);
+    }
+
+    if (hasPendingSaveWork() || typeof pendingUpdateAction === "function") {
+      await retryPendingWorkAfterBackground();
+
+      while (isAnySaveRunningNow()) {
+        await wait(250);
+      }
+    }
+
+    if (isModalVisible("conflictModal") && !isConflictReloading) {
+      await loadLatestFromConflict();
+      return;
+    }
+
+    if (!isModalVisible("updateRetryModal")) {
+      closeBlockingLoadingModal();
+    }
+  } catch (error) {
+    console.error(error);
+    closeBlockingLoadingModal();
+
+    isBackgroundSaveRecoveryRunning = false;
+    if (typeof pendingUpdateAction === "function") {
+      openUpdateRetryModal(error && error.code ? error.code : "N01", { forceShow: true });
+    } else {
+      openLoadFailureModal("リストを読み込めませんでした。\n通信状況を確認してください。");
+    }
+    return;
+  } finally {
+    isBackgroundSaveRecoveryRunning = false;
+  }
+}
+
+function setupBackgroundSaveRecovery() {
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      rememberBackgroundSaveState();
+      return;
+    }
+
+    scheduleBackgroundReturnCheck();
+  });
+
+  window.addEventListener("pagehide", rememberBackgroundSaveState);
+  window.addEventListener("pageshow", () => scheduleBackgroundReturnCheck());
 }
 
 function returnToTitleFromLoadFailure() {
@@ -3222,11 +3542,26 @@ setupStartupScreen();
 startStartupToastTimer();
 setupPullToRefresh();
 setupSwipeCloseGuards();
+setupBackgroundSaveRecovery();
 loadItems();
 
 // ========================================
 // 初期化
 // ========================================
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js");
+  let serviceWorkerRefreshing = false;
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (serviceWorkerRefreshing) return;
+    serviceWorkerRefreshing = true;
+    window.location.reload();
+  });
+
+  navigator.serviceWorker.register("./sw.js").then(registration => {
+    if (registration && typeof registration.update === "function") {
+      registration.update().catch(error => console.warn("Service Worker update failed", error));
+    }
+  }).catch(error => {
+    console.warn("Service Worker registration failed", error);
+  });
 }
