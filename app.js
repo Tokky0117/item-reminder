@@ -1,7 +1,7 @@
 // ========================================
 // 基本設定
 // ========================================
-const APP_VERSION = "3.1.0";
+const APP_VERSION = "3.2.0";
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxDuS5ZIUcb6ifMwJ5S86CZrV7YCnMsolM0lKbw7p71CK2mn_lWtT1LRzt9iIGpX04h/exec";
 
 
@@ -56,6 +56,9 @@ function cloneSaveRequest(request) {
   return ensureSaveRequest(request);
 }
 
+function clonePendingRequests(requests) {
+  return (requests || []).filter(Boolean).map(request => cloneSaveRequest(request));
+}
 
 const REORDER_HOLD_MS = 520;
 const COPY_FEEDBACK_MS = 1400;
@@ -780,6 +783,9 @@ function applyLoadedItemsResponse(response) {
 function loadItems(options = {}) {
   const fromPull = options.fromPull === true;
   const afterLoadMessage = options.afterLoadMessage || "";
+  const blockingTitle = options.blockingTitle || "";
+  const blockingMessage = options.blockingMessage || "";
+  const shouldShowBlocking = !!(blockingTitle || blockingMessage);
 
   if (fromPull && shoppingMode) {
     resetPullRefreshVisual();
@@ -792,6 +798,10 @@ function loadItems(options = {}) {
     updateActionButtons();
     updateRefreshIndicator();
     updatePullRefreshVisual();
+  }
+
+  if (shouldShowBlocking) {
+    openBlockingLoadingModal(blockingTitle || "処理中", blockingMessage || "しばらくお待ちください。");
   }
 
   const callbackName = "loadItemsCallback_" + Date.now();
@@ -807,6 +817,10 @@ function loadItems(options = {}) {
       finishPullRefresh();
     }
 
+    if (shouldShowBlocking) {
+      closeBlockingLoadingModal();
+    }
+
     delete window[callbackName];
     script.remove();
   };
@@ -819,6 +833,10 @@ function loadItems(options = {}) {
 
     if (fromPull) {
       finishPullRefresh();
+    }
+
+    if (shouldShowBlocking) {
+      closeBlockingLoadingModal();
     }
 
     openLoadFailureModal("リストを読み込めませんでした。\n通信状況を確認してください。");
@@ -2770,6 +2788,19 @@ async function copyShoppingList(event) {
   }
 }
 
+function scrollToTopImmediately() {
+  const container = document.getElementById("items");
+  if (container) {
+    container.scrollTop = 0;
+  }
+
+  if (document.scrollingElement) {
+    document.scrollingElement.scrollTop = 0;
+  }
+
+  window.scrollTo(0, 0);
+}
+
 function toggleShoppingMode() {
   if (isModeSaving || isReordering || isRefreshing || hasPendingSaveWork()) return;
   if (closeSwipedItemIfOpen()) return;
@@ -2786,6 +2817,7 @@ function toggleShoppingMode() {
   );
 
   render();
+  requestAnimationFrame(scrollToTopImmediately);
 }
 
 function openItemModalWithPageTransition() {
@@ -3451,6 +3483,12 @@ async function handleBackgroundReturnAfterSave() {
       }
     }
 
+    if (typeof pendingUpdateAction === "function") {
+      closeBlockingLoadingModal();
+      openUpdateRetryModal(pendingUpdateErrorCode || "N01", { forceShow: true });
+      return;
+    }
+
     if (isModalVisible("conflictModal") && !isConflictReloading) {
       await loadLatestFromConflict();
       return;
@@ -3507,7 +3545,10 @@ function startFromTitleScreen() {
 
 function retryLoadFromFailure() {
   closeLoadFailureModal();
-  loadItems();
+  loadItems({
+    blockingTitle: "再読み込み中",
+    blockingMessage: "リストを読み込んでいます。"
+  });
 }
 
 document.addEventListener("click", event => {
